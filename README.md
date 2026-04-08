@@ -1,22 +1,22 @@
 | Deliverable | Due Date              |
 |---------------|----------------------------------------------------------------------------|
-| Race Day | Saturday, May 10th 9AM - 4PM EST |
-| Code Pushed to Github  | Saturday, May 10th 1PM EST |
-| Briefing Slides | Monday, May 5th at 1PM EST |
-| Briefing (15 min presentation + 5 min Q&A) | May 5th, 7th, or 12th at 3PM EST |
-| [Team Member Assessment](https://forms.gle/FuwuAduxHc7Q8iQz6)  | Saturday, May 10th at 11:59PM EST |
+| Race Day | Saturday, May 9th 9AM - 4PM EST |
+| Code Pushed to Github  | Saturday, May 9th 1PM EST |
+| Briefing Slides | Monday, May 4th at 1PM EST |
+| Briefing (15 min presentation + 5 min Q&A) | May 4th or 6th at 3PM EST |
+| [Team Member Assessment](https://forms.gle/FuwuAduxHc7Q8iQz6)  | Saturday, May 9th at 11:59PM EST |
 
 ## Table of Contents
 
-* [Introduction](https://github.com/mit-rss/final_challenge2025#introduction)
-    * [Grading](https://github.com/mit-rss/final_challenge2025#grading)
-* [Shrink Ray Heist](https://github.com/mit-rss/final_challenge2025#parta)
-* [Race to the Moon](https://github.com/mit-rss/final_challenge2025#partb)
-* [Briefing](https://github.com/mit-rss/final_challenge2025#Briefing)
-* [General Notes](https://github.com/mit-rss/final_challenge2025#general_notes)
-* [FAQ](https://github.com/mit-rss/final_challenge2025#faq)
+* [Introduction](https://github.com/mit-rss/final_challenge2026#introduction)
+    * [Grading](https://github.com/mit-rss/final_challenge2026#grading)
+* [Shrink Ray Heist](https://github.com/mit-rss/final_challenge2026#parta)
+* [Race to the Moon](https://github.com/mit-rss/final_challenge2026#partb)
+* [Briefing](https://github.com/mit-rss/final_challenge2026#Briefing)
+* [General Notes](https://github.com/mit-rss/final_challenge2026#general_notes)
+* [FAQ](https://github.com/mit-rss/final_challenge2026#faq)
 
-# Final Challenge 2025
+# Final Challenge 2026
 
 ### Introduction
 
@@ -26,7 +26,7 @@ This semester, you've learned how to implement real-time robotics software on a 
 
 Now, your team will apply everything you’ve learned to outrun Mr. Krabs and steal the Krabby Patty formula!
 
-<img src="media/despicable_me_moon.png" width="500"/>
+<img src="media/patty_wagon.png" width="500"/>
 
 ### Spongebob…!
 
@@ -46,7 +46,7 @@ Luckily, through RSS, you’ve learned everything you need to become the best sp
 
 ## Part A: Mrs. Puff's Boating Test <a name="parta"></a>
 
-<img src="media/vector.png" width="150"/>
+<img src="media/boating_school.png" width="150"/>
 
 Part A is worth 25% of your Final Challenge technical grade. You get 3 attempts and your grade is based on your best attempt out of 3. Your grade will be calculated based on completion of the course and the number of penalties you incur as follows. 
 
@@ -124,7 +124,9 @@ If you have trouble getting accurate localization, consider:
 
 ## Part B: Krusty Krab Pizza Delivery <a name="partb"></a>
 
-<img src="media/minions-driving.jpg" width="400"/>
+<img src="media/spongebob_pizza.jpg" width="400"/>
+
+<img src="media/Krusty_Krab_Pizza.jpg" width="400"/>
 
 ### Environment and Task
 
