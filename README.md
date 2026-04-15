@@ -96,7 +96,7 @@ Here are some things you may consider in developing your approach:
 
 Please note that Hough Transforms will very likely be useful; helpful resources are [here](https://towardsdatascience.com/lines-detection-with-hough-transform-84020b3b1549) and [here](https://docs.opencv.org/3.4/d9/db0/tutorial_hough_lines.html).
 
-Reach out early for help! We don't want your snail looking like this:
+Start early and check in with us as you go! We don't want your snail looking like this:
 
 <img src="media/snail_race_3.jpg" width="400"/>
 
