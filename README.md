@@ -55,7 +55,7 @@ Luckily, through RSS, you’ve learned everything you need to become the best sp
 
 The crowd is roaring, the bubbles are floating, and it’s time for the most prestigious event in all of Bikini Bottom… the Great Snail Race! It’s all about speed, slime, and snail pride. SpongeBob SquarePants arrives with his beloved snail, Gary. Squidward Tennisballs (or is it Tentacles) enters Snelly, the high-pedigree purebred snail. And lastly, Patrick Star brings Rocky… the rock.
 
-The race will take place on the legendary Bikni Botton Johnson Track Loop—a standard 200-meter course. Each snail (that’s your car!) will be assigned to one of six lanes, revealed on race day. Stay in your lane; no snail likes a lane hog! Lanes are numbered from left to right as shown in the image below. Pick your favorite character and prepare for glory. Will you channel SpongeBob’s unstoppable enthusiasm, Squidward’s questionable confidence, or Patrick’s… unwavering belief in a rock?
+The race will take place on the legendary Bikini Bottom Johnson Track Loop—a standard 200-meter course. Each snail (that’s your car!) will be assigned to one of six lanes, revealed on race day. Stay in your lane; no snail likes a lane hog! Lanes are numbered from left to right as shown in the image below. Pick your favorite character and prepare for glory. Will you channel SpongeBob’s unstoppable enthusiasm, Squidward’s questionable confidence, or Patrick’s… unwavering belief in a rock?
 
 <!-- <img src="media/final_race.PNG" width="600" /> -->
 <img src="media/start_area.jpg" width="600"/>
