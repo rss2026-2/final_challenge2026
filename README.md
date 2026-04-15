@@ -97,10 +97,6 @@ Here are some things you may consider in developing your approach:
 
 Please note that Hough Transforms will very likely be useful; helpful resources are [here](https://towardsdatascience.com/lines-detection-with-hough-transform-84020b3b1549) and [here](https://docs.opencv.org/3.4/d9/db0/tutorial_hough_lines.html).
 
-Start early and check in with us as you go! We don't want your snail looking like this:
-
-<img src="media/snail_race_3.jpg" width="400"/>
-
 ## Part B: Mrs. Puff's Boating School <a name="partb"></a>
 
 <img src="media/boating_school.png" width="500"/>
@@ -205,6 +201,10 @@ The final challenge is the most open-ended assignment in RSS, and comes with min
 ### Leveraging previous labs
 
 You are encouraged to build your solution on code written in previous labs! If you are using your old homography solution, it's a good idea to verify its accuracy. 
+
+### Start early and check in with us as you go! We don't want your snail looking like this:
+
+<img src="media/snail_race_3.jpg" width="400"/>
 
 ## FAQ
 
