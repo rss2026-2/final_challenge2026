@@ -47,9 +47,9 @@ Luckily, through RSS, you’ve learned everything you need to become the best sp
 
 ## Part A: The Great Snail Race <a name="parta"></a>
 
-<img src="media/snail_race.jpeg" width="600"/>
+<img src="media/snail_race.jpeg" width="400"/>
 
-<img src="media/snail_race_2.jpg" width="600"/>
+<img src="media/snail_race_2.jpg" width="400"/>
 
 ### Environment and Task
 
@@ -99,7 +99,7 @@ Please note that Hough Transforms will very likely be useful; helpful resources 
 
 ## Part B: Mrs. Puff's Boating School <a name="partb"></a>
 
-<img src="media/boating_school.png" width="600"/>
+<img src="media/boating_school.png" width="400"/>
 
 Part B is worth 25% of your Final Challenge technical grade. You get 3 attempts and your grade is based on your best attempt out of 3. Your grade will be calculated based on completion of the course and the number of penalties you incur as follows. 
 
@@ -127,7 +127,7 @@ Here are the details of the challenge:
    * Go back via your original path. In this case, the TA crossing and surveillance light are ***bidirectional*** -- you will need to pass them again.
    * Go around the map (through the long hallway and vending machines). You will not need to pass the TA crossing and surveillance light again, but this will likely require more robust localization!
 
-<img src="media/final_challenge_bikini_bottom.png" width="1000"/>
+<img src="media/final_challenge_bikini_bottom.png" width="800"/>
 
 ### Scoring:
 
@@ -204,7 +204,7 @@ You are encouraged to build your solution on code written in previous labs! If y
 
 ### Start early and check in with us as you go! We don't want your snail looking like this:
 
-<img src="media/snail_race_3.jpg" width="600"/>
+<img src="media/snail_race_3.jpg" width="400"/>
 
 ## FAQ
 
