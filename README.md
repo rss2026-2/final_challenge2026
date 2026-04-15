@@ -127,7 +127,7 @@ Here are the details of the challenge:
    * Go back via your original path. In this case, the TA crossing and surveillance light are ***bidirectional*** -- you will need to pass them again.
    * Go around the map (through the long hallway and vending machines). You will not need to pass the TA crossing and surveillance light again, but this will likely require more robust localization!
 
-<img src="media/final_challenge_bikini_bottom.png" width="500"/>
+<img src="media/final_challenge_bikini_bottom.png" width="1000"/>
 
 ### Scoring:
 
