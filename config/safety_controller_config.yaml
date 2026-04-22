@@ -1,0 +1,13 @@
+safety_controller:
+  ros__parameters:
+    safety_radius: 0.25
+    safety_controller_const: 0.8
+
+safety_tester:
+  ros__parameters:
+    drive_topic: '/vesc/high_level/input/nav_1'
+    drive_speed: 3.0
+
+logger_node:
+  ros__parameters:
+    logger_topic: '/crash_points'
