@@ -12,6 +12,7 @@ setup(
     version='0.0.0',
     packages=[],
     scripts=[
+        'scripts/homography_transformer.py',
         'scripts/lane_detector_node.py',
     ],
     data_files=[

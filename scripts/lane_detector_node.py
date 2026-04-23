@@ -7,11 +7,13 @@ import numpy as np
 import cv2
 from cv_bridge import CvBridge
 
+from geometry_msgs.msg import PoseArray, Point
 from sensor_msgs.msg import Image
 
 class LineDetector(Node):
     """
-    Uses hough line detector to outline the track lines.
+    Uses hough line detector to outline the track lines. Estimates the left and right lines
+    of the track. Publishes a goal point that car can follow with pure pursuit.
     """
 
     def __init__(self):
@@ -20,20 +22,33 @@ class LineDetector(Node):
         self.declare_parameter('debug_topic', '/track_lines')
         self.declare_parameter('low_threshold', 50)
         self.declare_parameter('high_threshold', 150)
+        self.declare_parameter('direction', 'left')
+        self.declare_parameter('goal_y_offset', 50)
 
         self.debug_topic = self.get_parameter('debug_topic').value
         self.image_topic = self.get_parameter('image_topic').value
         self.low_threshold = self.get_parameter('low_threshold').value
         self.high_threshold = self.get_parameter('high_threshold').value
+        self.direction = self.get_parameter('direction').value
+        self.goal_y_offset = self.get_parameter('goal_y_offset').value
 
         self.image_sub = self.create_subscription(Image, self.image_topic, self.hough_fallback, 5)
         self.debug_pub = self.create_publisher(Image, self.debug_topic, 10)
         self.debug_offline_pub = self.create_publisher(Image, self.image_topic, 10)
+        self.lane_points_pub = self.create_publisher(PoseArray, "/lane_points_px", 10)
+        self.goal_pub = self.create_publisher(Point, "/goal_point", 10)
         self.bridge = CvBridge()
+        self.last_left_line = None
+        self.last_right_line = None
+        self.goal_y_ref = None
+        self.goal_y_tolerance = 25.0
 
         # use this line to debug with static images:
         # self.load_and_publish_image('src/final_challenge2026/racetrack_images/lane_3/image45.png')
+
         self.get_logger().info(f"Line Detector Node Initialized - Publishing Debug Image to '{self.debug_topic}'")
+
+### ----------------- LINE DETECTOR  ----------------- ####
 
     def hough_fallback(self, msg):
         """
@@ -58,133 +73,141 @@ class LineDetector(Node):
 
         height, width = edges.shape
         # polygon = np.array([[(0, height), (width, height), (width, 0), (0,0)]])
-        polygon = np.array([[(0, height), (width, height), (width, int(height * 0.2)), (0, int(height * 0.2))]])
+        if self.direction == "left":
+            polygon = np.array([[(int(width * 0.1), int(height * 0.8)), (int(width * 0.95), int(height * 0.8)), (int(width * 0.90), int(height * 0.4)), (int(width * 0.2), int(height * 0.4))]])
+        else:
+            polygon = np.array([[(int(width * 0.05), int(height * 0.8)), (int(width * 0.9), int(height * 0.8)), (int(width * 0.8), int(height * 0.4)), (int(width * 0.1), int(height * 0.4))]])
+
         black_mask = np.zeros_like(edges)
         cv2.fillPoly(black_mask, polygon, 255)
         masked_edges = cv2.bitwise_and(edges, black_mask)
 
-        lines = cv2.HoughLinesP(masked_edges, 1, np.pi/180, threshold=50, minLineLength=40, maxLineGap=10)
+        lines = cv2.HoughLinesP(masked_edges, 1, np.pi/180, threshold=100, minLineLength=40, maxLineGap=10)
 
-        self.publish_lines(lane_image, lines)
+        # goal point
+        self.find_goal(lines, lane_image)
 
-    def image_callback(self, msg):
+### ----------------- GOAL FINDER  ----------------- ####
+
+    def find_goal(self, lines, image):
         """
-        Another rendition of hough callback. Slightly more complicated. I tried doing some line merger
-        that merges lines if they are close enough together and have the same slope. Performs roughly the
-        same as the base line.
+        Inputs lines found from hough transform. Outputs a goal point for the car to follow.
 
-        :param msg: ROS2 Image message
-        :returns None
-        """
-        image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-        lane_image = np.copy(image)
-        gray = cv2.cvtColor(lane_image, cv2.COLOR_RGB2GRAY)
-        blur = cv2.GaussianBlur(gray, (5,5), 0)
-        canny = cv2.Canny(blur, self.low_threshold, self.high_threshold)
-        self.publish_debug_image(canny)
+        1) Filter out lines that are too flat (these are noise)
+        2) Detect the left and right lane segments. Extend each line to the bottom of the
+        image. Lines that intersect the image to the left of the midpoint are left while those
+        that intersect to the right are right.
+        3) Choose the left segment that is furthest to the right and the right segment that is
+        furthest to the right (smallest width lane formed by the lines).
+        2) Fit LOBF that extends past the lines. Find the intersection of LOBF.
+        3) Bisect the area between the two lines.
+        4) Follow the bisection for distance of self.goal_y_offset.
+        5) Draw the goal point.
 
-        cropped_image = self.region_of_interest(canny)
-        self.publish_debug_image(cropped_image)
+        :param lines: Numpy Array storing the start and end points of each line
+        :image: Numpy Array storing the pixel information of the original image
 
-        lines = cv2.HoughLinesP(cropped_image, rho=1, theta=np.pi/180, threshold=100, minLineLength=40, maxLineGap=5)
-
-        merged_lines = self.merge_lines(lines)
-        self.publish_lines(merged_lines)
-
-    def merge_lines(self, lines):
-        """
-        Merges similar lines by slope and end point distance.
-
-        :param lines: Numpy array stores the endpoints of the lines
-        :returns merged: Numpy array stores the endpoints of the merged lines
+        :returns None or msg a ROS2 Point message
         """
         if lines is None:
-            return []
+            self.get_logger().info("ERROR: Detected no lines.")
+            return
 
-        def angle_diff(a, b):
-            d = abs(a - b)
-            return min(d, np.pi - d)
+        h, w = image.shape[:2]
+        y_bot = h - 1
+        ls, rs = [], []
 
-        def point_to_segment_dist(px, py, x1, y1, x2, y2):
-            p = np.array([px, py], dtype=np.float32)
-            a = np.array([x1, y1], dtype=np.float32)
-            b = np.array([x2, y2], dtype=np.float32)
-            ab = b - a
-            ab2 = np.dot(ab, ab)
-            if ab2 == 0:
-                return np.linalg.norm(p - a)
-            t = np.clip(np.dot(p - a, ab) / ab2, 0.0, 1.0)
-            proj = a + t * ab
-            return np.linalg.norm(p - proj)
+        for x1, y1, x2, y2 in [s[0] for s in lines]:
+            if abs(np.arctan2(y2 - y1, x2 - x1)) >= np.deg2rad(15) and y2 != y1:
+                x_bot = x1 + (y_bot - y1) * (x2 - x1) / (y2 - y1)
+                (ls if x_bot < (w / 2.0) else rs).append((x1, y1, x2, y2))
 
-        raw_lines = [tuple(l[0]) for l in lines]
-        clusters = []
+        get_x = lambda s: s[0] + (y_bot - s[1]) * (s[2] - s[0]) / (s[3] - s[1])
+        curr_pair = (max(ls, key=get_x) if ls else None, min(rs, key=get_x) if rs else None)
 
-        for x1, y1, x2, y2 in raw_lines:
-            angle = np.arctan2(y2 - y1, x2 - x1) % np.pi
-            placed = False
+        msg, dbg = self.goal_from_pair(curr_pair, image, ls, rs, h, w)
 
-            for c in clusters:
-                d1 = point_to_segment_dist(x1, y1, *c["line"])
-                d2 = point_to_segment_dist(x2, y2, *c["line"])
-                d3 = point_to_segment_dist(*c["line"][:2], x1, y1, x2, y2)
-                d4 = point_to_segment_dist(*c["line"][2:], x1, y1, x2, y2)
+        if msg is not None:
+            self.last_left_line, self.last_right_line = curr_pair
+        else:
+            self.get_logger().info("WARNING: Using fallback lanes.")
+            fb_pair = (getattr(self, 'last_left_line', None), getattr(self, 'last_right_line', None))
+            msg, dbg = self.goal_from_pair(fb_pair, image, self.goal_y_offset, ls, rs, h, w)
+            if msg is None:
+                return
 
-                if angle_diff(angle, c["angle"]) <= 0.23 and min(d1, d2, d3, d4) <= 20.0:
-                    c["points"].append((x1, y1, x2, y2))
-                    placed = True
-                    break
+        self.goal_pub.publish(msg)
+        self.publish_debug_image(dbg)
+        return msg
 
-            if not placed:
-                clusters.append({
-                    "angle": angle,
-                    "line": (x1, y1, x2, y2),
-                    "points": [(x1, y1, x2, y2)],
-                })
-
-        merged = []
-        for c in clusters:
-            pts = []
-            for x1, y1, x2, y2 in c["points"]:
-                pts.extend([[x1, y1], [x2, y2]])
-
-            pts = np.array(pts, dtype=np.float32)
-            vx, vy, x0, y0 = cv2.fitLine(pts, cv2.DIST_L2, 0, 0.01, 0.01).flatten()
-            direction = np.array([vx, vy], dtype=np.float32)
-            point = np.array([x0, y0], dtype=np.float32)
-
-            t = (pts - point) @ direction
-            p1 = point + direction * t.min()
-            p2 = point + direction * t.max()
-            merged.append((int(p1[0]), int(p1[1]), int(p2[0]), int(p2[1])))
-        return merged
-
-    def region_of_interest(self, image):
+    def goal_from_pair(self, pair, image, ls, rs, h, w):
         """
-        Filters out unecessary parts of the image. Draws a polygon around the necessary region.
+        Takes in a pair of lines and outputs the goal point. Does steps 2-4 detailed in
+        self.find_goal.
 
-        :param image: Numpy Array stores image pixel data
-        :return masked_image: Numpy Array stores filtered image pixel data
+        :param pair: a tuple of line segments
+        :param image: Numpy Array containing raw image pixel data
+        :param ls: list of all left line segments
+        :param rs: list of all right line segments
+        :param h: height of the image
+        :param w: width of the image
+
+        :returns Tuple(ROS2 Point message, Image matrix with the goal and line segments outlined)
         """
-        height = image.shape[0]
-        width = image.shape[1]
-        polygons = np.array([
-        [(0, height), (width, height), (width, int(height * 0.5)), (width//2, int(height*0.3)), (0,int(height*0.5))]
-        ])
-        mask = np.zeros_like(image)
-        cv2.fillPoly(mask, polygons, 255)
-        masked_image = cv2.bitwise_and(image, mask)
-        return masked_image
+        if None in pair:
+            return
+
+        models = []
+        for s in pair:
+            vx, vy, x0, y0 = cv2.fitLine(np.array([[s[0], s[1]], [s[2], s[3]]], dtype=np.float32), cv2.DIST_L2, 0, 0.01, 0.01).flatten()
+            models.append((np.array([vx, vy]) * np.sign(vy + 1e-6), np.array([x0, y0])))
+
+        (lv, lp), (rv, rp) = models
+
+        A = np.array([[-lv[1], lv[0]], [-rv[1], rv[0]]])
+        b = np.array([-lv[1]*lp[0] + lv[0]*lp[1], -rv[1]*rp[0] + rv[0]*rp[1]])
+        if abs(np.linalg.det(A)) < 1e-6: return None, None
+        inter = np.linalg.solve(A, b)
+
+        bis = (lv / np.linalg.norm(lv)) + (rv / np.linalg.norm(rv))
+        if np.linalg.norm(bis) < 1e-6: return None, None
+        bis = (bis / np.linalg.norm(bis)) * np.sign(bis[1] + 1e-6)
+
+        gy = min(inter[1] + self.goal_y_offset, h - 1)
+        gx = np.clip(inter[0] + (gy - inter[1]) * bis[0] / bis[1], 0, w - 1)
+
+        if getattr(self, 'goal_y_ref', None) is not None and abs(gy - self.goal_y_ref) > getattr(self, 'goal_y_tolerance', float('inf')):
+            return None, None
+        self.goal_y_ref = gy
+
+        dbg = image.copy()
+        for s in ls: cv2.line(dbg, s[:2], s[2:], (255, 0, 0), 1)
+        for s in rs: cv2.line(dbg, s[:2], s[2:], (0, 255, 0), 1)
+        for s, c in zip(pair, [(255, 0, 255), (0, 255, 255)]): cv2.line(dbg, s[:2], s[2:], c, 4)
+        for (v, p), c in zip(models, [(0, 0, 255), (0, 255, 0)]):
+            if abs(v[1]) > 1e-6: cv2.line(dbg, (int(p[0] + (h-1-p[1])*v[0]/v[1]), h-1), (int(p[0] + (h*0.45-p[1])*v[0]/v[1]), int(h*0.45)), c, 3)
+        ix, iy, gx_int, gy_int = int(inter[0]), int(inter[1]), int(gx), int(gy)
+        cv2.circle(dbg, (ix, iy), 7, (0, 255, 255), -1)
+        cv2.circle(dbg, (gx_int, gy_int), 7, (255, 255, 0), -1)
+        cv2.line(dbg, (ix, iy), (gx_int, gy_int), (255, 255, 0), 2)
+        cv2.line(dbg, (w // 2, h - 1), (w // 2, int(h * 0.45)), (100, 100, 100), 1)
+
+        return Point(x=float(gx), y=float(gy), z=0.0), dbg
+
+### ----------------- PUBLISHERS  ----------------- ####
 
     def publish_lines(self, image, lines):
         """
-        Helper to publish an image overlaying lines on an image.
+        Helper to publish an image overlaying all lines detected on an image.
 
         :params image: Numpy Array stores image pixel data
         :params lines: Numpy Array stores endpoints for each line
 
         :returns None
         """
+        if lines is None:
+            return
+
         line_image = np.zeros_like(image)
         try:
             for x1, y1, x2, y2 in lines:
@@ -203,7 +226,6 @@ class LineDetector(Node):
         :params image: Numpy Array that stores pixel information of a picture
         :returns None
         """
-        self.get_logger().info("Publishing a debug image...")
         try:
             debug_msg = self.bridge.cv2_to_imgmsg(image, "bgr8")
         except:
