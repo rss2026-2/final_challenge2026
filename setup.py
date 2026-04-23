@@ -14,6 +14,7 @@ setup(
     scripts=[
         'scripts/homography_transformer.py',
         'scripts/lane_detector_node.py',
+        'scripts/lane_follower_node.py'
     ],
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
