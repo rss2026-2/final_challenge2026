@@ -24,9 +24,11 @@ class LineDetector(Node):
         self.declare_parameter('high_threshold', 150)
         self.declare_parameter('direction', 'left')
         self.declare_parameter('goal_y_offset', 50)
+        self.declare_parameter('goal_topic', '/goal_point')
 
         self.debug_topic = self.get_parameter('debug_topic').value
         self.image_topic = self.get_parameter('image_topic').value
+        self.goal_topic = self.get_parameter('goal_topic').value
         self.low_threshold = self.get_parameter('low_threshold').value
         self.high_threshold = self.get_parameter('high_threshold').value
         self.direction = self.get_parameter('direction').value
@@ -34,10 +36,10 @@ class LineDetector(Node):
 
         self.image_sub = self.create_subscription(Image, self.image_topic, self.hough_fallback, 5)
         self.debug_pub = self.create_publisher(Image, self.debug_topic, 10)
-        self.debug_offline_pub = self.create_publisher(Image, self.image_topic, 10)
-        self.lane_points_pub = self.create_publisher(PoseArray, "/lane_points_px", 10)
-        self.goal_pub = self.create_publisher(Point, "/goal_point", 10)
+        self.goal_pub = self.create_publisher(Point, self.goal_topic, 10)
         self.bridge = CvBridge()
+
+        # cache lanes in case of frames dropping
         self.last_left_line = None
         self.last_right_line = None
         self.goal_y_ref = None
@@ -132,7 +134,7 @@ class LineDetector(Node):
         else:
             self.get_logger().info("WARNING: Using fallback lanes.")
             fb_pair = (getattr(self, 'last_left_line', None), getattr(self, 'last_right_line', None))
-            msg, dbg = self.goal_from_pair(fb_pair, image, self.goal_y_offset, ls, rs, h, w)
+            msg, dbg = self.goal_from_pair(fb_pair, image, ls, rs, h, w)
             if msg is None:
                 return
 
@@ -155,7 +157,7 @@ class LineDetector(Node):
         :returns Tuple(ROS2 Point message, Image matrix with the goal and line segments outlined)
         """
         if None in pair:
-            return
+            return None, None
 
         models = []
         for s in pair:
@@ -190,7 +192,6 @@ class LineDetector(Node):
         cv2.circle(dbg, (ix, iy), 7, (0, 255, 255), -1)
         cv2.circle(dbg, (gx_int, gy_int), 7, (255, 255, 0), -1)
         cv2.line(dbg, (ix, iy), (gx_int, gy_int), (255, 255, 0), 2)
-        cv2.line(dbg, (w // 2, h - 1), (w // 2, int(h * 0.45)), (100, 100, 100), 1)
 
         return Point(x=float(gx), y=float(gy), z=0.0), dbg
 
@@ -242,11 +243,7 @@ class LineDetector(Node):
         image = cv2.imread(path_name)
         lane_image = np.copy(image)
         self.get_logger().info("Publishing source image...")
-        try:
-            debug_msg = self.bridge.cv2_to_imgmsg(lane_image, "bgr8")
-        except:
-            debug_msg = self.bridge.cv2_to_imgmsg(lane_image, "mono8")
-        self.debug_offline_pub.publish(debug_msg)
+        self.publish_debug_image(lane_image)
 
 
 def main(args=None):
