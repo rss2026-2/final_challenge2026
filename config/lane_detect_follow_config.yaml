@@ -1,0 +1,9 @@
+line_detector:
+  ros__parameters:
+
+parking_controller:
+  ros__parameters:
+    drive_topic: "/vesc/low_level/input/navigation"
+    goal_point_topic: "/goal_point"
+    target_point_topic: "/target_point"
+    detection_mode: "lane"
