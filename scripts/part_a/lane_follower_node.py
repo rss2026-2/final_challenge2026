@@ -49,30 +49,17 @@ class ParkingController(Node):
         self.VELOCITY = self.get_parameter('velocity').get_parameter_value().double_value
         self.LOOKAHEAD = self.get_parameter('lookahead').get_parameter_value().double_value
 
-        self.drive_cmd = None
-
         timer_rate = 20 # rate at which we publish the drive command
         self.create_timer(1/timer_rate, self.timer_drive_pub_callback)
 
         self.get_logger().info("Line Follower Initialized")
 
     def timer_drive_pub_callback(self):
-        """Publishes the drive command at a specific frequency. """
-        if self.drive_cmd is not None:
-            self.drive_pub.publish(self.drive_cmd)
-            # self.error_publisher()
-
-    def relative_cone_callback(self, msg):
-        """Caches the pose of the intersection and calculates new drive command"""
-        self.relative_x = msg.x
-        self.relative_y = msg.y
+        """Calculates and publishes the drive command at a specific frequency. """
+        if self.relative_x is None or self.relative_y is None:
+            return
+        # only calculate the dirve command if we have an x and y point to drive towards.
         drive_cmd = AckermannDriveStamped()
-
-        #################################
-
-        # YOUR CODE HERE
-        # Use relative position and your control law to set drive_cmd
-
         # self.get_logger().info(f'New Drive Command')
 
         header = Header()
@@ -86,9 +73,15 @@ class ParkingController(Node):
         pure_persuit_drive_cmd = self.update_control(target_point) # get the drive command w speed and steer
 
         drive_cmd.drive = pure_persuit_drive_cmd
-        #################################
 
-        self.drive_cmd = drive_cmd
+        self.drive_pub.publish(drive_cmd)
+        # self.error_publisher()
+
+    def relative_cone_callback(self, msg):
+        """Caches the pose of the intersection. No longer calculates drive command."""
+        self.relative_x = msg.x
+        self.relative_y = msg.y
+
 
     def error_publisher(self):
         """
