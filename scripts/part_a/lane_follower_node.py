@@ -17,7 +17,7 @@ class ParkingController(Node):
     """
 
     def __init__(self):
-        super().__init__("parking_controller")
+        super().__init__("lane_follower")
         # drive topic to publish to
         self.declare_parameter("drive_topic")
         self.DRIVE_TOPIC = self.get_parameter("drive_topic").value  # set in launch file; different for simulator vs racecar
@@ -54,7 +54,7 @@ class ParkingController(Node):
         timer_rate = 20 # rate at which we publish the drive command
         self.create_timer(1/timer_rate, self.timer_drive_pub_callback)
 
-        self.get_logger().info("Parking Controller Initialized")
+        self.get_logger().info("Line Follower Initialized")
 
     def timer_drive_pub_callback(self):
         """Publishes the drive command at a specific frequency. """

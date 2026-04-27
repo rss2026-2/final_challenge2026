@@ -5,7 +5,7 @@ safety_controller:
 
 safety_tester:
   ros__parameters:
-    drive_topic: '/vesc/high_level/input/nav_1'
+    drive_topic: '/vesc/high_level/input/nav_1' 
     drive_speed: 3.0
 
 logger_node:
