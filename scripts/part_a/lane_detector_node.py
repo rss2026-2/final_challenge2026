@@ -23,7 +23,7 @@ class LineDetector(Node):
         self.declare_parameter('low_threshold', 50)
         self.declare_parameter('high_threshold', 150)
         self.declare_parameter('direction', 'left')
-        self.declare_parameter('goal_y_offset', 50)
+        self.declare_parameter('goal_y_offset', 70)
         self.declare_parameter('goal_topic', '/goal_point')
 
         self.debug_topic = self.get_parameter('debug_topic').value

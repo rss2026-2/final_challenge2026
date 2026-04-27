@@ -1,26 +1,43 @@
 #!/usr/bin/env python3
 
-import numpy as np
-import cv2
-
 import rclpy
 from rclpy.node import Node
+import numpy as np
 
-from geometry_msgs.msg import Point, Pose, PoseArray
+import cv2
+from cv_bridge import CvBridge, CvBridgeError
+
+from std_msgs.msg import String
+from sensor_msgs.msg import Image
+from ackermann_msgs.msg import AckermannDriveStamped
 from visualization_msgs.msg import Marker
+from vs_msgs.msg import ConeLocation, ConeLocationPixel
+from geometry_msgs.msg import Point
 
-# PTS_IMAGE_PLANE units are in pixels.
-PTS_IMAGE_PLANE = [[199, 196],
-                   [373, 209],
-                   [171, 249],
-                   [409, 315]]
+# The following collection of pixel locations and corresponding relative
+# ground plane locations are used to compute our homography matrix
 
-# PTS_GROUND_PLANE units are in inches.
+# PTS_IMAGE_PLANE units are in pixels
+# see README.md for coordinate frame description
+
+######################################################
+# DUMMY POINTS -- ENTER YOUR MEASUREMENTS HERE
+PTS_IMAGE_PLANE = [[199, 196], # avg over 5 clicks (199 196, 199 196, 199 195, 200 197, 200 197, 198 195, 199 196 )
+                   [373, 209], # avg over 5 clicks (373 209, 373 209, 374 209, 374 208, 373 209)
+                   [171, 249], # avg over 5 clicks  (171 249, 171 249, 170 250, 170 249, 171 250)
+                   [409, 315]]  # avg over 5 clicks (409 315, 409 315, 407 314, 409 315, 409 315)
+######################################################
+
+# PTS_GROUND_PLANE units are in inches
 # car looks along positive x axis with positive y axis to left
-PTS_GROUND_PLANE = [[46.40, 17.25],
-                    [37.525, -7.75],
-                    [24.025, 12.0],
-                    [13.275, -1.625]]
+
+######################################################
+# DUMMY POINTS -- ENTER YOUR MEASUREMENTS HERE
+PTS_GROUND_PLANE = [[46.40, 17.25], # avg over 3 measurements
+                    [37.525, -7.75], # avg over 3 measurements
+                    [24.025, 12.0], # avg over 3 measurements
+                    [13.275, -1.625]]  # avg over 3 measurements
+######################################################
 
 METERS_PER_INCH = 0.0254
 
@@ -29,84 +46,112 @@ class HomographyTransformer(Node):
     def __init__(self):
         super().__init__("homography_transformer")
 
-        self.lane_points_pub = self.create_publisher(PoseArray, "/relative_lane_points", 10)
-        self.marker_pub = self.create_publisher(Marker, "/lane_marker", 1)
-        self.lane_px_sub = self.create_subscription(PoseArray, "/lane_points_px", self.lane_points_callback, 1)
+        self.cone_pub = self.create_publisher(ConeLocation, "/real_point", 10)
+        self.marker_pub = self.create_publisher(Marker, "/cone_marker", 1)
+        self.cone_px_sub = self.create_subscription(ConeLocationPixel, "/relative_cone_px", self.cone_detection_callback, 1)
+        # added
+        self.click_px_sub = self.create_subscription(Point, "/goal_point", self.click_callback, 1)
 
-        if len(PTS_GROUND_PLANE) != len(PTS_IMAGE_PLANE):
-            self.get_logger().error("PTS_GROUND_PLANE and PTS_IMAGE_PLANE should be the same length")
+        if not len(PTS_GROUND_PLANE) == len(PTS_IMAGE_PLANE):
+            rclpy.logerr("ERROR: PTS_GROUND_PLANE and PTS_IMAGE_PLANE should be of same length")
 
-        np_pts_ground = np.float32(np.array(PTS_GROUND_PLANE) * METERS_PER_INCH)[:, np.newaxis, :]
-        np_pts_image = np.float32(np.array(PTS_IMAGE_PLANE))[:, np.newaxis, :]
+        # Initialize data into a homography matrix
 
-        self.h, _ = cv2.findHomography(np_pts_image, np_pts_ground)
+        np_pts_ground = np.array(PTS_GROUND_PLANE)
+        np_pts_ground = np_pts_ground * METERS_PER_INCH
+        np_pts_ground = np.float32(np_pts_ground[:, np.newaxis, :])
+
+        np_pts_image = np.array(PTS_IMAGE_PLANE)
+        np_pts_image = np_pts_image * 1.0
+        np_pts_image = np.float32(np_pts_image[:, np.newaxis, :])
+
+        self.h, err = cv2.findHomography(np_pts_image, np_pts_ground)
+
         self.get_logger().info("Homography Transformer Initialized")
 
-    def lane_points_callback(self, msg):
-        world_points = PoseArray()
-        world_points.header.stamp = msg.header.stamp
-        world_points.header.frame_id = "base_link"
+    def cone_detection_callback(self, msg):
+        # Extract information from message
+        u = msg.u
+        v = msg.v
 
-        marker = Marker()
-        marker.header.stamp = msg.header.stamp
-        marker.header.frame_id = "base_link"
-        marker.ns = "lane_points"
-        marker.id = 0
-        marker.type = Marker.LINE_LIST
-        marker.action = Marker.ADD
-        marker.scale.x = 0.03
-        marker.color.a = 1.0
-        marker.color.r = 0.0
-        marker.color.g = 1.0
-        marker.color.b = 0.0
+        # Call to main function
+        x, y = self.transformUvToXy(u, v)
 
-        poses = msg.poses
-        for i in range(0, len(poses) - 1, 2):
-            x1, y1 = poses[i].position.x, poses[i].position.y
-            x2, y2 = poses[i + 1].position.x, poses[i + 1].position.y
+        # Publish relative xy position of object in real world
+        relative_xy_msg = ConeLocation()
+        relative_xy_msg.x_pos = x
+        relative_xy_msg.y_pos = y
 
-            wx1, wy1 = self.transform_uv_to_xy(x1, y1)
-            wx2, wy2 = self.transform_uv_to_xy(x2, y2)
+        self.draw_marker(x, y, '/zed_left_camera_optical_frame')
+        self.cone_pub.publish(relative_xy_msg)
 
-            pose1 = Pose()
-            pose1.position.x = float(wx1)
-            pose1.position.y = float(wy1)
-            pose1.orientation.w = 1.0
+    def click_callback(self, msg):
+        # self.get_logger().info("Click detected")
+        u = msg.x
+        v = msg.y
 
-            pose2 = Pose()
-            pose2.position.x = float(wx2)
-            pose2.position.y = float(wy2)
-            pose2.orientation.w = 1.0
 
-            world_points.poses.extend([pose1, pose2])
+        x, y = self.transformUvToXy(u, v)
 
-            p1 = Point()
-            p1.x = float(wx1)
-            p1.y = float(wy1)
-            p1.z = 0.0
+        self.get_logger().info(f'{u=}, {v=}')
+        self.get_logger().info(f'{x=}, {y=}')
 
-            p2 = Point()
-            p2.x = float(wx2)
-            p2.y = float(wy2)
-            p2.z = 0.0
+        # Publish relative xy position of object in real world
+        relative_xy_msg = ConeLocation()
+        relative_xy_msg.x_pos = x
+        relative_xy_msg.y_pos = y
 
-            marker.points.extend([p1, p2])
+        self.draw_marker(x, y, "/base_link")
+        self.cone_pub.publish(relative_xy_msg)
 
-        self.lane_points_pub.publish(world_points)
-        self.marker_pub.publish(marker)
 
-    def transform_uv_to_xy(self, u, v):
+    def transformUvToXy(self, u, v):
+        """
+        u and v are pixel coordinates.
+        The top left pixel is the origin, u axis increases to right, and v axis
+        increases down.
+
+        Returns a normal non-np 1x2 matrix of xy displacement vector from the
+        camera to the point on the ground plane.
+        Camera points along positive x axis and y axis increases to the left of
+        the camera.
+
+        Units are in meters.
+        """
         homogeneous_point = np.array([[u], [v], [1]])
         xy = np.dot(self.h, homogeneous_point)
         scaling_factor = 1.0 / xy[2, 0]
         homogeneous_xy = xy * scaling_factor
-        return homogeneous_xy[0, 0], homogeneous_xy[1, 0]
+        x = homogeneous_xy[0, 0]
+        y = homogeneous_xy[1, 0]
+        # self.get_logger().info(f"x-value: {x} \n y-value: {y}")
+        return x, y
+
+    def draw_marker(self, cone_x, cone_y, message_frame):
+        """
+        Publish a marker to represent the cone in rviz.
+        (Call this function if you want)
+        """
+        marker = Marker()
+        marker.header.frame_id = message_frame
+        marker.type = marker.CYLINDER
+        marker.action = marker.ADD
+        marker.scale.x = .2
+        marker.scale.y = .2
+        marker.scale.z = .2
+        marker.color.a = 1.0
+        marker.color.r = 1.0
+        marker.color.g = .5
+        marker.pose.orientation.w = 1.0
+        marker.pose.position.x = cone_x
+        marker.pose.position.y = cone_y
+        self.marker_pub.publish(marker)
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = HomographyTransformer()
-    rclpy.spin(node)
+    homography_transformer = HomographyTransformer()
+    rclpy.spin(homography_transformer)
     rclpy.shutdown()
 
 
