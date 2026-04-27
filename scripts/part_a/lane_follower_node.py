@@ -17,7 +17,7 @@ class ParkingController(Node):
     """
 
     def __init__(self):
-        super().__init__("parking_controller")
+        super().__init__("lane_follower")
         # drive topic to publish to
         self.declare_parameter("drive_topic")
         self.DRIVE_TOPIC = self.get_parameter("drive_topic").value  # set in launch file; different for simulator vs racecar
@@ -49,46 +49,37 @@ class ParkingController(Node):
         self.VELOCITY = self.get_parameter('velocity').get_parameter_value().double_value
         self.LOOKAHEAD = self.get_parameter('lookahead').get_parameter_value().double_value
 
-        self.drive_cmd = None
-
         timer_rate = 20 # rate at which we publish the drive command
         self.create_timer(1/timer_rate, self.timer_drive_pub_callback)
 
         self.get_logger().info("Parking Controller Initialized")
 
     def timer_drive_pub_callback(self):
-        """Publishes the drive command at a specific frequency. """
-        if self.drive_cmd is not None:
-            self.drive_pub.publish(self.drive_cmd)
-            # self.error_publisher()
+        """Calculates and publishes the drive command at a specific frequency. """
+        if self.relative_x is not None and self.relative_y is not None:
+            # only calculate with the relevant pose
+            drive_cmd = AckermannDriveStamped()
+            # self.get_logger().info(f'New Drive Command')
+
+            header = Header()
+            header.stamp = self.get_clock().now().to_msg()
+            header.frame_id = 'base_link'
+            drive_cmd.header = header
+
+            # choose target at the lookahead distance
+            target_point = self.get_point_on_line((self.relative_x, self.relative_y), self.LOOKAHEAD)
+
+            pure_persuit_drive_cmd = self.update_control(target_point) # get the drive command w speed and steer
+
+            drive_cmd.drive = pure_persuit_drive_cmd
+
+            self.drive_pub.publish(drive_cmd)
 
     def relative_cone_callback(self, msg):
         """Caches the pose of the intersection and calculates new drive command"""
         self.relative_x = msg.x
         self.relative_y = msg.y
-        drive_cmd = AckermannDriveStamped()
 
-        #################################
-
-        # YOUR CODE HERE
-        # Use relative position and your control law to set drive_cmd
-
-        # self.get_logger().info(f'New Drive Command')
-
-        header = Header()
-        header.stamp = self.get_clock().now().to_msg()
-        header.frame_id = 'base_link'
-        drive_cmd.header = header
-
-        # choose target at the lookahead distance
-        target_point = self.get_point_on_line((self.relative_x, self.relative_y), self.LOOKAHEAD)
-
-        pure_persuit_drive_cmd = self.update_control(target_point) # get the drive command w speed and steer
-
-        drive_cmd.drive = pure_persuit_drive_cmd
-        #################################
-
-        self.drive_cmd = drive_cmd
 
     def error_publisher(self):
         """
