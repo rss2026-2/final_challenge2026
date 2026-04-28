@@ -1,12 +1,13 @@
 <launch>
 
-  <node pkg="final_challenge2026" name="lane_detector_node" exec="lane_detector_node.py" output="screen">
+  <node pkg="final_challenge2026" name="lane_detector_node" exec="lane_detector_node" output="screen">
   </node>
 
-  <node pkg="final_challenge2026" name="lane_follower_node" exec="lane_follower_node.py" output="screen">
+  <node pkg="final_challenge2026" name="lane_follower_node" exec="lane_follower_node" output="screen">
   </node>
 
-  <node pkg="final_challenge2026" name="homography_transformer" exec="homography_transformer.py" output="screen">
+  <node pkg="visual_servoing" name="homography_transformer" exec="homography_transformer" output="screen">
+    <param from="$(find-pkg-share final_challenge2026)/config/homography_config.yaml"/>
   </node>
 
 </launch>

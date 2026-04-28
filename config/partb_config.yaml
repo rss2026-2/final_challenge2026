@@ -1,0 +1,9 @@
+traffic_light:
+  ros__parameters:
+    tl_drive_topic: "/vesc/high_level/input/nav_0"
+    red_light_topic: "/red_light"
+
+parking_meter:
+  ros__parameters:
+    pm_drive_topic: "/vesc/high_level/input/nav_1"
+
