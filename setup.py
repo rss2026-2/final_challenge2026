@@ -30,3 +30,4 @@ setup(
             'lane_follower = final_challenge2026.part_b.lane_follower_node:main',
         ],
     },
+)

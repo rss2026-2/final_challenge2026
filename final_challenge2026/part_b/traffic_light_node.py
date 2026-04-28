@@ -24,7 +24,7 @@ class TrafficLight(Node):
         timer_hz = self.get_parameter('timer_hz').get_parameter_value().double_value
 
         # -- Publishers and subscribers --
-        self.red_light_sub = self.create_subscription(Bool, self.tl_red_topic, self.red_light_callback, 1)
+        self.red_light_sub = self.create_subscription(Bool, self.red_light_topic, self.red_light_callback, 1)
         
         self.tl_drive_pub = self.create_publisher(AckermannDriveStamped, self.tl_drive_topic, 10)
 
