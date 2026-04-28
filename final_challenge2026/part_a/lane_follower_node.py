@@ -9,7 +9,7 @@ from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
 from std_msgs.msg import Header
 from geometry_msgs.msg import Point
 
-class ParkingController(Node):
+class LaneFollower(Node):
     """
     A controller for parking in front of a cone.
     Listens for a relative cone location and publishes control commands.
@@ -176,8 +176,8 @@ class ParkingController(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    pc = ParkingController()
-    rclpy.spin(pc)
+    lf = LaneFollower()
+    rclpy.spin(lf)
     rclpy.shutdown()
 
 
