@@ -31,7 +31,7 @@ class TrafficLight(Node):
         self.tl_drive_topic = self.get_parameter('tl_drive_topic').get_parameter_value().string_value
         self.tl_point_topic = self.get_parameter('tl_point_topic').get_parameter_value().string_value
         self.traffic_light_topic = self.get_parameter('traffic_light_topic').get_parameter_value().string_value
-        self.image_topic = self.get_parameter('image_topic').get_paramter_value().string_value
+        self.image_topic = self.get_parameter('image_topic').get_parameter_value().string_value
         # self.red_light_topic = self.get_parameter('red_light_topic').get_parameter_value().string_value
         ### -- Declared parameters (End) -- ###
 
