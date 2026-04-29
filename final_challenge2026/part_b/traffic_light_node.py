@@ -3,7 +3,7 @@ from rclpy.node import Node
 import numpy as np
 
 from std_msgs.msg import Header, Bool
-from ackermann_msgs.msg import AckermanDriveStamped
+from ackermann_msgs.msg import AckermannDriveStamped
 
 class TrafficLight(Node):
     """
