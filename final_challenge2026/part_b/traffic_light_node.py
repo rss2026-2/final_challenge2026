@@ -94,3 +94,13 @@ class TrafficLight(Node):
             drive_command.steering_angle = angle
 
         self.tl_drive_pub.publish(new_msg)
+
+def main(args=None):
+    rclpy.init(args=args)
+    light_detector = TrafficLight()
+    rclpy.spin(light_detector)
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
