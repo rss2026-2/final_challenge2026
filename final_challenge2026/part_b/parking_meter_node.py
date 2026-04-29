@@ -13,15 +13,18 @@ class ParkingMeter(Node):
 
         # -- Declared parameters --
         self.declare_parameter('pm_drive_topic', '/vesc/high_level/input/nav_1')
-        self.declare_parameter('parking_meter_topic', '/parking_meter')
+        self.declare_parameter('pm_point_topic', '/pm_relative_point')
+        self.declare_parameter('annotated_img_topic', '/yolo/annotated_image')
         # self.declare_parameter('parking_topic', '/is_parking')
 
         self.pm_drive_topic = self.get_parameter('pm_drive_topic').value
-        self.parking_meter_topic = self.get_parameter('parking_meter_topic').value
+        self.pm_point_topic = self.get_parameter('pm_point_topic').value
+        self.annotated_img_topic = self.get_parameter('annotated_img_topic').value
         # self.is_parking_topic = self.get_parameter('is_parking').value
         
         # -- Publishers and subscribers --
-        self.parking_meter_sub = self.create_subscription(Image, self.parking_meter_topic, self.parking_meter_callback, 1)
+        self.pm_point_sub = self.create_subscription(Point, self.pm_point_topic, self.pm_point_callback, 1)
+        self.annotated_img_sub = self.create_subscription(Image, self.annotated_img_topic, self.img_callback, 1)
 
         self.pm_drive_pub = self.create_publisher(AckermannDriveStamped, self.pm_drive_topic, 10)
 
@@ -32,7 +35,7 @@ class ParkingMeter(Node):
 
         self.get_logger().info("=== Parking Meter Initialized ===")
 
-    def parking_meter_callback(self, msg):
+    def pm_point_callback(self, msg):
         """
         Handles parking meter behavior when we see one
         """
@@ -47,3 +50,10 @@ class ParkingMeter(Node):
         # TODO: wait 5sec
 
         # TODO: stop sending zero drive command and cache parking meter to ignore it
+
+    def img_callback(self, msg):
+        """
+        Image callback that handles saving the parking meter zed img 
+        at the right time
+        """
+        pass
