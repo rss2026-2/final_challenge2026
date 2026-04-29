@@ -33,19 +33,19 @@ class YoloDetection(Node):
         # Added code for final challenge
 
         # -- Declared parameters --
-        self.declare_parameter('traffic_light_topic', '/traffic_light')
-        self.declare_parameter('traffic_light_only_topic', '/traffic_light_only')
+        self.declare_parameter('traffic_light_full_topic', '/traffic_light_full')
+        self.declare_parameter('traffic_light_cropped_topic', '/traffic_light_cropped')
         self.declare_parameter('parking_meter_topic', '/parking_meter')
         self.declare_parameter('person_topic', '/person')
 
-        self.traffic_light_topic = self.get_parameter('traffic_light_topic').value
-        self.traffic_light_only_topic = self.get_parameter('traffic_light_only_topic').value
+        self.traffic_light_full_topic = self.get_parameter('traffic_light_full_topic').value
+        self.traffic_light_cropped_topic = self.get_parameter('traffic_light_cropped_topic').value
         self.parking_meter_topic = self.get_parameter('parking_meter_topic').value
         self.person_topic = self.get_parameter('person_topic').value
 
         # -- Publishers and subscribers --
-        self.traffic_light_pub = self.create_publisher(Image, self.traffic_light_topic, 10)
-        self.traffic_light_only_pub = self.create_publisher(Image, self.traffic_light_only_topic, 10)
+        self.traffic_light_full_pub = self.create_publisher(Image, self.traffic_light_full_topic, 10)
+        self.traffic_light_cropped_pub = self.create_publisher(Image, self.traffic_light_cropped_topic, 10)
         self.parking_meter_pub = self.create_publisher(Image, self.parking_meter_topic, 10)
         self.person_pub = self.create_publisher(Image, self.person_topic, 10)
 
@@ -88,7 +88,7 @@ class YoloDetection(Node):
         # Create publisher and subscribers
         self.bridge = CvBridge()
         self.sub = self.create_subscription(
-            Image, "/zed/zed_node/rgb/image_rect_color", self.on_image, 10)
+            Image, "/zed/zed_node/rgb/image_rect_color", self.on_image, 1)
         self.pub = self.create_publisher(
             Image, "/yolo/annotated_image", 10)
 
