@@ -1,3 +1,16 @@
-<node pkg="visual_servoing" name="homography_transformer" exec="homography_transformer" output="screen">
-    <param from="$(find-pkg-share final_challenge2026)/config/homography_config.yaml"/>
-</node>
+<launch>
+
+    <node pkg="visual_servoing" name="homography_transformer" exec="homography_transformer" output="screen">
+        <param from="$(find-pkg-share final_challenge2026)/config/homography_config.yaml"/>
+    </node>
+
+    <node pkg="final_challenge2026" name="yolo_detection_node" exec="yolo_detection" output="screen">
+    </node>
+
+    <node pkg="final_challenge2026" name="traffic_light_node" exec="traffic_light" output="screen">
+    </node>
+
+    <node pkg="final_challenge2026" name="parking_meter_node" exec="parking_meter" output="screen">
+    </node>
+
+</launch>
