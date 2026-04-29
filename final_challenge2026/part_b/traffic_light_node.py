@@ -9,6 +9,7 @@ from computer_vision.color_segmentation import find_most_prominent_color
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header, Bool
 from ackermann_msgs.msg import AckermannDriveStamped
+from geometry_msgs.msg import Point
 
 class TrafficLight(Node):
     """
@@ -22,37 +23,46 @@ class TrafficLight(Node):
         ### -- Declared parameters (Start) -- ###
         # -- ROS2 Topics
         self.declare_parameter('tl_drive_topic', '/vesc/high_level/input/nav_0')
-        self.declare_parameter('traffic_light_full_topic', '/traffic_light_full')
-        self.declare_parameter('traffic_light_cropped_topic', '/traffic_light_cropped')
-        self.declare_parameter('red_light_topic', '/red_light')
+        self.declare_parameter('tl_point_topic', '/tl_relative_point')
+        self.declare_parameter('traffic_light_topic', '/traffic_light')
+        # self.declare_parameter('red_light_topic', '/red_light')
 
         self.tl_drive_topic = self.get_parameter('tl_drive_topic').get_parameter_value().string_value
-        self.traffic_light_full_topic = self.get_parameter('traffic_light_full_topic').get_parameter_value().string_value
-        self.traffic_light_cropped_topic = self.get_parameter('traffic_light_cropped_topic').get_parameter_value().string_value
-        self.red_light_topic = self.get_parameter('red_light_topic').get_parameter_value().string_value
+        self.tl_point_topic = self.get_parameter('tl_point_topic').get_parameter_value().string_value
+        self.traffic_light_topic = self.get_parameter('traffic_light_topic').get_parameter_value().string_value
+        # self.red_light_topic = self.get_parameter('red_light_topic').get_parameter_value().string_value
         ### -- Declared parameters (End) -- ###
 
         ### -- Publishers and Subscribers (Start) -- ###
         # -- Pubs
         self.tl_drive_pub = self.create_publisher(AckermannDriveStamped, self.tl_drive_topic, 10)
-        self.red_light_pub = self.create_publisher(Bool, self.red_light_topic, 10)
+        # self.red_light_pub = self.create_publisher(Bool, self.red_light_topic, 10)
         self.image_debug_pub = self.create_publisher(Image, "/debug_img", 10)
 
         # -- Subs
-        self.traffic_light_full_sub = self.create_subscription(Image, self.traffic_light_full_topic, self.full_callback, 1)
-        self.red_light_sub = self.create_subscription(Bool, self.red_light_topic, self.red_light_callback, 1)
+        self.tl_point_sub = self.create_subscription(Point, self.tl_point_topic, self.tl_point_callback, 1)
+        self.traffic_light_sub = self.create_subscription(Image, self.traffic_light_topic, self.traffic_light_callback, 1)
+        # self.red_light_sub = self.create_subscription(Bool, self.red_light_topic, self.red_light_callback, 1)
         ### -- Publishers and Subscribers (End) -- ###
+
+        self.CLOSE_DIST = 3.0 # change me
+        self.traffic_light_close = False
+
         
         self.bridge = CvBridge()
         self.get_logger().info("=== Traffic Light Node Initialized ===")
-    
-    def full_callback(self, image_msg):
-        """
-        Finds out how far away the traffic light is
-        """
-        pass
 
-    def cropped_callback(self, image_msg):
+    def tl_point_callback(self, msg):
+        """
+        Point callback that checks to see if the traffic light is close enough to consider
+        performing color segmentation on
+        """
+        if msg.x < self.CLOSE_DIST:
+            self.traffic_light_close = True
+        else:
+            self.traffic_light_close = False
+
+    def traffic_light_callback(self, image_msg):
         """
         Image callback that scans for a red light on a traffic light
         """
@@ -65,22 +75,27 @@ class TrafficLight(Node):
             # Publish true to /red_light (or just call publish_stop())
             bool_msg = Bool()
             bool_msg.data = True
-            self.red_light_pub.publish(bool_msg)
-            # self.publish_stop()
+
+            # self.red_light_pub.publish(bool_msg)
+            if self.traffic_light_close:
+                self.publish_stop()
+
         elif tf_color == "yellow":
             # TODO: Maybe handle slowing down for a yellow light?
             # for now, just don't stop
             bool_msg = Bool()
             bool_msg.data = False
-            self.red_light_pub.publish(bool_msg)
+            # self.red_light_pub.publish(bool_msg)
             pass
+
         elif tf_color == "green":
             # If we see a green light, 
             # Publish false to /red_light
             bool_msg = Bool()
             bool_msg.data = False
-            self.red_light_pub.publish(bool_msg)
+            # self.red_light_pub.publish(bool_msg)
             pass
+            
         else:
             # TODO: What to do if we couldn't detect any of the colors,
             # which prob won't happen
@@ -90,20 +105,18 @@ class TrafficLight(Node):
             self.red_light_pub.publish(bool_msg) 
             pass
 
+    # def red_light_callback(self, msg):
+    #     """
+    #     Looks for whether the signal is a red light or not
+    #     """
+    #     # If we're not even close to the traffic light avoid this callback
+    #     if not self.traffic_light_close:
+    #         return
 
-
-    def red_light_found_callback(self, msg):
-        """
-        Looks for whether the signal is a red light or not
-        """
-        # If we're not even close to the traffic light avoid this callback
-        if not self.traffic_light_close:
-            return
-
-        # TODO: Give the angle to publish_stop through a drive callback or 
-        # topic that publishes only the angle
-        self.publish_stop()
-        self.get_logger().info("Published TL stop command")
+    #     # TODO: Give the angle to publish_stop through a drive callback or 
+    #     # topic that publishes only the angle
+    #     self.publish_stop()
+    #     self.get_logger().info("Published TL stop command")
 
     def tf_color_detection(self, image):
         """
@@ -145,7 +158,7 @@ class TrafficLight(Node):
         new_msg = AckermannDriveStamped()
         
         header = Header()
-        header.stamp = self.get_clock().now()
+        header.stamp = self.get_clock().now().to_msg()
         header.frame_id = 'base_link'
         new_msg.header = header
 

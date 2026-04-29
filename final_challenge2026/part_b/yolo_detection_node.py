@@ -12,6 +12,8 @@ from rclpy.node import Node
 from typing import List
 from ultralytics import YOLO
 
+from vs_msgs.msg import Pixel
+
 
 @dataclass(frozen=True)
 class Detection:
@@ -33,21 +35,21 @@ class YoloDetection(Node):
         # Added code for final challenge
 
         # -- Declared parameters --
-        self.declare_parameter('traffic_light_full_topic', '/traffic_light_full')
-        self.declare_parameter('traffic_light_cropped_topic', '/traffic_light_cropped')
-        self.declare_parameter('parking_meter_topic', '/parking_meter')
-        self.declare_parameter('person_topic', '/person')
+        self.declare_parameter('traffic_light_topic', '/traffic_light')
+        self.declare_parameter('tl_point_px_topic', '/tl_point_px')
+        self.declare_parameter('pm_point_px_topic', '/pm_point_px')
+        self.declare_parameter('person_point_px_topic', '/person_point_px')
 
-        self.traffic_light_full_topic = self.get_parameter('traffic_light_full_topic').value
-        self.traffic_light_cropped_topic = self.get_parameter('traffic_light_cropped_topic').value
-        self.parking_meter_topic = self.get_parameter('parking_meter_topic').value
-        self.person_topic = self.get_parameter('person_topic').value
+        self.traffic_light_topic = self.get_parameter('traffic_light_topic').value
+        self.tl_point_px_topic = self.get_parameter('tl_point_px_topic').value
+        self.pm_point_px_topic = self.get_parameter('pm_point_px_topic').value
+        self.person_point_px_topic = self.get_parameter('person_point_px_topic').value
 
         # -- Publishers and subscribers --
-        self.traffic_light_full_pub = self.create_publisher(Image, self.traffic_light_full_topic, 10)
-        self.traffic_light_cropped_pub = self.create_publisher(Image, self.traffic_light_cropped_topic, 10)
-        self.parking_meter_pub = self.create_publisher(Image, self.parking_meter_topic, 10)
-        self.person_pub = self.create_publisher(Image, self.person_topic, 10)
+        self.traffic_light_pub = self.create_publisher(Image, self.traffic_light_topic, 10)
+        self.tl_point_px_pub = self.create_publisher(Pixel, self.tl_point_px_topic, 10)
+        self.pm_point_px_pub = self.create_publisher(Pixel, self.pm_point_px_topic, 10)
+        self.person_point_px_pub = self.create_publisher(Pixel, self.person_point_px_topic, 10)
 
         ################
 
@@ -223,68 +225,57 @@ class YoloDetection(Node):
 
     ###############    
     # Added function for final challenge
-    def publish_detections(self, bgr_image, detections, header):
+    def publish_detections(self, bgr_img, detections, header):
         """
         Publish detection to the correct topic for later behavior.
         
         Args:
-            bgr_image: The input image of the zed camera
-            detection: The object containing detection information
+            bgr_img: The input image of the zed camera
+            detections: The object containing detection information
             header: The header of the original img
         """
 
         for det in detections:
-            out_image = bgr_image.copy()
-            boundingbox = ((det.x1,det.y1),(det.x2,det.y2))
-
-            cv2.rectangle(out_image,
-                          boundingbox[0],
-                          boundingbox[1],
-                          self.class_color_map[det.class_name],
-                          2)
-
+            
             detection_name = det.class_name
-        
-            out_msg = self.bridge.cv2_to_imgmsg(annotated, encoding="bgr8")
-            out_msg.header = header
+            
+            # Define the location of the detection using the bottom-midpoint value
+            x_mid = (det.x1 + det.x2)/2.0
+            pixel_msg = Pixel()
+            pixel_msg.u = float(x_mid)
+            pixel_msg.v = float(det.y2)
 
             publisher = None
-
-            # If we see a parking meter, we need: 
-                # the full zed image including the bbox around the parking meter to know how far away it is.
+            # Use the correct publisher depending on what the detection is
             if detection_name == 'parking meter':
-                publisher = self.parking_meter_pub
-
-            # If we see a traffic light, we need:
-                # the cropped image of just the traffic light to perform color segmentation for determining red signal or not.
-                # the full zed image including the bbox around the parking meter to know how far away it is.
+                publisher = self.pm_point_px_pub
+            
+            elif detection_name == 'person':
+                publisher = self.person_point_px_pub
+            
             elif detection_name == 'traffic light':
-                publisher = self.traffic_light_pub
+                publisher = self.tl_point_px_pub
                 
-                # -- Special publish to the traffic light only topic --
+                # -- Special behavior to publish the cropped traffic light --
+                out_img = bgr_img.copy()  
 
                 # Crop the image to the bbox
                 assert det.x1 < det.x2 and det.y1 < det.y2, f"why is {det.x1=} < {det.x2=} or {det.y1=} < {det.y2=}?"
-                cropped_out_image = out_image[det.y1:det.y2, det.x1:det.x2]
+                cropped_out_img = out_img[det.y1:det.y2, det.x1:det.x2]
 
                 # Create the msg
-                cropped_out_msg = self.bridge.cv2_to_imgmsg(annotated, encoding="bgr8")
-                cropped_out_msg.header = msg.header
+                cropped_img_msg = self.bridge.cv2_to_imgmsg(cropped_out_img, encoding="bgr8")
+                cropped_img_msg.header = header
 
                 # Publish the msg
-                self.traffic_light_only_pub.publish(cropped_out_msg)
-
-            # If we see a person, we need:
-                # the full zed image including the bbox around the person to see how far away they are.
-            elif detection_name == 'person':
-                publisher = self.person_pub
+                self.traffic_light_pub.publish(cropped_img_msg)
 
             else:
                 self.get_logger().info(f'detection "{detection_name}" does not match any topic we have set up to publish to')
                 return
         
-        publisher.publish(out_msg)
-        self.get_logger().info(f'published {detection_name} detection to its respective topic')
+            publisher.publish(pixel_msg)
+            self.get_logger().info(f'published {detection_name} detection to its respective topic')
     ###############    
 
 
