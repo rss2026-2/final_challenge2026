@@ -34,7 +34,7 @@ class TrafficLight(Node):
 
         self.get_logger().info("=== Traffic Light Node Initialized ===")
     
-    def traffic_light_callback(self):
+    def traffic_light_callback(self, msg):
         """
         Looks for how far away the traffic light is before handling red light signal behavior
         """
@@ -44,7 +44,7 @@ class TrafficLight(Node):
             # Set traffic_light_close to True
             # self.traffic_light_close = True
     
-    def traffic_light_only_callback(self):
+    def traffic_light_only_callback(self, msg):
         """
         Looks for whether the signal is a red light or not
         """
