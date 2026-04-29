@@ -92,44 +92,6 @@ class YoloDetection(Node):
         self.pub = self.create_publisher(
             Image, "/yolo/annotated_image", 10)
 
-    ###############    
-    # Added function for final challenge
-    def publish_detection(self, det, out_image):
-        """
-        Publish detection to the correct topic for later behavior.
-        
-        Args:
-            detection: The object containing detection information
-            out_image: The output image of the zed camera with the bbox around the detection
-        """
-        detection_name = det.class_name
-
-        # If we see a parking meter, we need: 
-            # the full zed image including the bbox around the parking meter to know how far away it is.
-        if detection_name == 'parking meter':
-            self.parking_meter_pub.publish(out_image)
-
-        # If we see a traffic light, we need:
-            # the cropped image of just the traffic light to perform color segmentation for determining red signal or not.
-            # the full zed image including the bbox around the parking meter to know how far away it is.
-        elif detection_name == 'traffic light':
-            self.traffic_light_pub.publish(out_image)
-            # Crop the image to the bbox
-            assert det.x1 < det.x2 and det.y1 < det.y2, f"why is {det.x1=} < {det.x2=} or {det.y1=} < {det.y2=}?"
-            cropped_out_image = out_image[det.y1:det.y2, det.x1:det.x2]
-            self.traffic_light_only_pub.publish(cropped_out_image)
-        # If we see a person, we need:
-            # the full zed image including the bbox around the person to see how far away they are.
-        elif detection_name == 'person':
-            self.person_pub.publish(out_image)
-        else:
-            self.get_logger().info(f'detection "{detection_name}" does not match any topic we have set up to publish to')
-            return
-        
-        self.get_logger().info(f'published {detection_name} detection to its respective topic')
-    ###############    
-
-
     def get_class_color_map(self) -> dict[str, tuple[int, int, int]]:
         """
         Return a dictionary mapping a list of COCO class names you want to keep
@@ -172,6 +134,12 @@ class YoloDetection(Node):
 
         # Draw detections on BGR image
         annotated = self.draw_detections(bgr, dets)
+
+        #######
+        # Added code for final challenge
+        # We want to publish each detection individually to handle different behavior for each detection
+        self.publish_detections(bgr, dets, msg.header)
+        #######
 
         # Publish annotated BGR image
         out_msg = self.bridge.cv2_to_imgmsg(annotated, encoding="bgr8")
@@ -250,12 +218,74 @@ class YoloDetection(Node):
                         0.5, # font scale
                         self.class_color_map[det.class_name], # text color
                         2) # thickness
-            #######
-            # Added code for final challenge
-            # We want to publish each detection individually to handle different behavior for each detection
-            self.publish_detection(det, out_image)
-            #######
+            
         return out_image
+
+    ###############    
+    # Added function for final challenge
+    def publish_detections(self, bgr_image, detections, header):
+        """
+        Publish detection to the correct topic for later behavior.
+        
+        Args:
+            bgr_image: The input image of the zed camera
+            detection: The object containing detection information
+            header: The header of the original img
+        """
+
+        for det in detections:
+            out_image = bgr_image.copy()
+            boundingbox = ((det.x1,det.y1),(det.x2,det.y2))
+
+            cv2.rectangle(out_image,
+                          boundingbox[0],
+                          boundingbox[1],
+                          self.class_color_map[det.class_name],
+                          2)
+
+            detection_name = det.class_name
+        
+            out_msg = self.bridge.cv2_to_imgmsg(annotated, encoding="bgr8")
+            out_msg.header = header
+
+            publisher = None
+
+            # If we see a parking meter, we need: 
+                # the full zed image including the bbox around the parking meter to know how far away it is.
+            if detection_name == 'parking meter':
+                publisher = self.parking_meter_pub
+
+            # If we see a traffic light, we need:
+                # the cropped image of just the traffic light to perform color segmentation for determining red signal or not.
+                # the full zed image including the bbox around the parking meter to know how far away it is.
+            elif detection_name == 'traffic light':
+                publisher = self.traffic_light_pub
+                
+                # -- Special publish to the traffic light only topic --
+
+                # Crop the image to the bbox
+                assert det.x1 < det.x2 and det.y1 < det.y2, f"why is {det.x1=} < {det.x2=} or {det.y1=} < {det.y2=}?"
+                cropped_out_image = out_image[det.y1:det.y2, det.x1:det.x2]
+
+                # Create the msg
+                cropped_out_msg = self.bridge.cv2_to_imgmsg(annotated, encoding="bgr8")
+                cropped_out_msg.header = msg.header
+
+                # Publish the msg
+                self.traffic_light_only_pub.publish(cropped_out_msg)
+
+            # If we see a person, we need:
+                # the full zed image including the bbox around the person to see how far away they are.
+            elif detection_name == 'person':
+                publisher = self.person_pub
+
+            else:
+                self.get_logger().info(f'detection "{detection_name}" does not match any topic we have set up to publish to')
+                return
+        
+        publisher.publish(out_msg)
+        self.get_logger().info(f'published {detection_name} detection to its respective topic')
+    ###############    
 
 
 def main() -> None:
