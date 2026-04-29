@@ -16,61 +16,54 @@ class TrafficLight(Node):
 
         # -- Declared parameters --
         self.declare_parameter('tl_drive_topic', '/vesc/high_level/input/nav_0')
-        self.declare_parameter('red_light_topic', '/red_light')
-        self.declare_parameter('timer_hz', 20)
+        self.declare_parameter('traffic_light_topic', '/traffic_light')
+        self.declare_parameter('traffic_light_only_topic', '/traffic_light_only')
 
         self.tl_drive_topic = self.get_parameter('tl_drive_topic').value
-        self.red_light_topic = self.get_parameter('red_light_topic').value
-        timer_hz = self.get_parameter('timer_hz').get_parameter_value().double_value
+        self.traffic_light_topic = self.get_parameter('traffic_light_topic').value
+        self.traffic_light_only_topic = self.get_parameter('traffic_light_only_topic').value
 
         # -- Publishers and subscribers --
-        self.red_light_sub = self.create_subscription(Bool, self.red_light_topic, self.red_light_callback, 1)
+        self.traffic_light_sub = self.create_subscription(Image, self.traffic_light_topic, self.traffic_light_callback, 1)
+        self.traffic_light_only_sub = self.create_subscription(Image, self.traffic_light_only_topic, self.traffic_light_only_callback, 1)
         
         self.tl_drive_pub = self.create_publisher(AckermannDriveStamped, self.tl_drive_topic, 10)
 
-        self.timer = self.create_timer(1/timer_hz, self.tl_detection_timer_callback)
+        # -- Initialized variables --
+        self.traffic_light_close = False
 
         self.get_logger().info("=== Traffic Light Node Initialized ===")
-
-    # TODO: Write behavior to detect a red light
-    # probably don't need red_light_callback after that unless we want to use /red_light in other nodes
     
-    def tl_detection_timer_callback(self):
+    def traffic_light_callback(self):
         """
-        Timer callback that scans for a red light on a traffic light
+        Looks for how far away the traffic light is before handling red light signal behavior
         """
-        # If we see a traffic light with X% confidence,
-        confidence = self.yolo_tf_detection_CHANTE_MY_NAME()
-            # Perform color segmentation on the spot where the red light would be
-            # If we see a red light, 
-                # Publish true to /red_light (or just call publish_stop())
-            
-            # Maybe handle slowing down for a yellow light?
-
-    def red_light_found_callback(self, msg):
+        # TODO: Perform homography on traffic light
+        
+        # If a traffic light is close enough,
+            # Set traffic_light_close to True
+            # self.traffic_light_close = True
+    
+    def traffic_light_only_callback(self):
         """
-        Handles behavior for when our robot sees a red light.
+        Looks for whether the signal is a red light or not
         """
-        # Don't do anything if we received a false boolean
-        if msg.data == False:
+        # If we're not even close to the traffic light avoid this callback
+        if not self.traffic_light_close:
             return
-
-        # TODO: Give the angle to publish_stop through a drive callback or 
-        # topic that publishes only the angle
-        self.publish_stop()
-        self.get_logger().info("Published TL stop command")
-
-    def yolo_tf_detection_CHANTE_MY_NAME(self):
-        """
-        YOLO traffic light detection (change me)
-        """
-        # TODO: Write YOLO traffic light detection behavior
-        # Probably always return a 0.0-1.0 number that is TL confidence %
+        
+        # TODO: Call color segmentation function to determine traffic light signal status
+        # If red light is detected, publish stop
+        # self.publish_stop()
+        
+        # TODO: Maybe handle slowing down for a yellow light? self.publish_slow()???
         pass
 
     def color_segmentation_CHANGE_MY_NAME(self):
         """
         Color segmentation (change me)
+
+        Returns integer determining whether a red, (yellow???), or no light was detected
         """
         # TODO: Write color segmentation behavior
         pass
