@@ -105,7 +105,7 @@ class TrafficLight(Node):
             # for now just don't stop
             bool_msg = Bool()
             bool_msg.data = False
-            self.red_light_pub.publish(bool_msg) 
+            # self.red_light_pub.publish(bool_msg) 
             pass
 
     # def red_light_callback(self, msg):
