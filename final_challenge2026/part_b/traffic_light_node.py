@@ -76,21 +76,21 @@ class TrafficLight(Node):
         pass
 
     def publish_stop(self, angle=None, frame='base_link'):
-    """
-    Publishes a command for the car to stop.
-    """
-    new_msg = AckermannDriveStamped()
-    
-    header = Header()
-    header.stamp = self.get_clock().now()
-    header.frame_id = 'base_link'
-    new_msg.header = header
+        """
+        Publishes a command for the car to stop.
+        """
+        new_msg = AckermannDriveStamped()
+        
+        header = Header()
+        header.stamp = self.get_clock().now()
+        header.frame_id = 'base_link'
+        new_msg.header = header
 
-    drive_command = new_msg.drive
-    drive_command.speed = 0.0
-    drive_command.acceleration = 0.0
-    drive_command.jerk = 0.0
-    if angle is not None:
-        drive_command.steering_angle = angle
+        drive_command = new_msg.drive
+        drive_command.speed = 0.0
+        drive_command.acceleration = 0.0
+        drive_command.jerk = 0.0
+        if angle is not None:
+            drive_command.steering_angle = angle
 
-    self.tl_drive_pub.publish(new_msg)
+        self.tl_drive_pub.publish(new_msg)
