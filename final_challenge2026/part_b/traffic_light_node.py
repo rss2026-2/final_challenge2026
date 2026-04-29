@@ -4,7 +4,7 @@ import numpy as np
 
 import cv2
 from cv_bridge import CvBridge
-from part_b.computer_vision.color_segmentation import find_most_prominent_color
+from computer_vision.color_segmentation import find_most_prominent_color
 
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header, Bool
