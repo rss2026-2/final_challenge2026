@@ -42,8 +42,11 @@ class LineDetector(Node):
         # cache lanes in case of frames dropping
         self.last_left_line = None
         self.last_right_line = None
+        self.last_lane_width = None
+        self.last_goal_msg = None
+        self.last_goal_dbg = None
         self.goal_y_ref = None
-        self.goal_y_tolerance = 25.0
+        self.goal_y_tolerance = 60.0
 
         # use this line to debug with static images:
         # self.load_and_publish_image('src/final_challenge2026/racetrack_images/lane_3/image45.png')
@@ -119,10 +122,14 @@ class LineDetector(Node):
         y_bot = h - 1
         ls, rs = [], []
 
+        mid_x = w / 2.0
         for x1, y1, x2, y2 in [s[0] for s in lines]:
             if abs(np.arctan2(y2 - y1, x2 - x1)) >= np.deg2rad(15) and y2 != y1:
                 x_bot = x1 + (y_bot - y1) * (x2 - x1) / (y2 - y1)
-                (ls if x_bot < (w / 2.0) else rs).append((x1, y1, x2, y2))
+                if x_bot < mid_x:
+                    ls.append((x1, y1, x2, y2))
+                else:
+                    rs.append((x1, y1, x2, y2))
 
         get_x = lambda s: s[0] + (y_bot - s[1]) * (s[2] - s[0]) / (s[3] - s[1])
         curr_pair = (max(ls, key=get_x) if ls else None, min(rs, key=get_x) if rs else None)
@@ -131,16 +138,43 @@ class LineDetector(Node):
 
         if msg is not None:
             self.last_left_line, self.last_right_line = curr_pair
+            self.last_goal_msg = msg
+            self.last_goal_dbg = dbg
         else:
             self.get_logger().info("WARNING: Using fallback lanes.")
             fb_pair = (getattr(self, 'last_left_line', None), getattr(self, 'last_right_line', None))
             msg, dbg = self.goal_from_pair(fb_pair, image, ls, rs, h, w)
             if msg is None:
+                if self.last_goal_msg is not None and self.last_goal_dbg is not None:
+                    self.goal_pub.publish(self.last_goal_msg)
+                    self.publish_debug_image(self.last_goal_dbg)
+                    return self.last_goal_msg
                 return
 
         self.goal_pub.publish(msg)
         self.publish_debug_image(dbg)
         return msg
+
+    def infer_lines(self, l, side):
+        """
+        Infer the missing lane by shifting the detected line sideways.
+
+        Uses the most recently observed lane width as the offset.
+        """
+        if l is None:
+            return None, None
+
+        lane_width = getattr(self, "last_lane_width", None)
+        if lane_width is None or not np.isfinite(lane_width) or lane_width <= 0:
+            return None, None
+
+        shift = lane_width if side == "right" else -lane_width
+        inferred = tuple(int(round(v)) for v in (l[0] + shift, l[1], l[2] + shift, l[3]))
+        if side == "left":
+            return inferred, l
+        if side == "right":
+            return l, inferred
+        return None, None
 
     def goal_from_pair(self, pair, image, ls, rs, h, w):
         """
@@ -156,8 +190,16 @@ class LineDetector(Node):
 
         :returns Tuple(ROS2 Point message, Image matrix with the goal and line segments outlined)
         """
-        if None in pair:
+        if pair == (None, None):
             return None, None
+        if pair[0] is None:
+            pair = self.infer_lines(pair[1], "left")
+            if pair == (None, None):
+                return None, None
+        elif pair[1] is None:
+            pair = self.infer_lines(pair[0], "right")
+            if pair == (None, None):
+                return None, None
 
         models = []
         for s in pair:
@@ -168,19 +210,32 @@ class LineDetector(Node):
 
         A = np.array([[-lv[1], lv[0]], [-rv[1], rv[0]]])
         b = np.array([-lv[1]*lp[0] + lv[0]*lp[1], -rv[1]*rp[0] + rv[0]*rp[1]])
-        if abs(np.linalg.det(A)) < 1e-6: return None, None
+        if abs(np.linalg.det(A)) < 1e-6:
+            if self.last_goal_msg is not None and self.last_goal_dbg is not None:
+                return self.last_goal_msg, self.last_goal_dbg
+            return None, None
         inter = np.linalg.solve(A, b)
 
         bis = (lv / np.linalg.norm(lv)) + (rv / np.linalg.norm(rv))
-        if np.linalg.norm(bis) < 1e-6: return None, None
+        if np.linalg.norm(bis) < 1e-6:
+            if self.last_goal_msg is not None and self.last_goal_dbg is not None:
+                return self.last_goal_msg, self.last_goal_dbg
+            return None, None
         bis = (bis / np.linalg.norm(bis)) * np.sign(bis[1] + 1e-6)
 
         gy = min(inter[1] + self.goal_y_offset, h - 1)
         gx = np.clip(inter[0] + (gy - inter[1]) * bis[0] / bis[1], 0, w - 1)
 
         if getattr(self, 'goal_y_ref', None) is not None and abs(gy - self.goal_y_ref) > getattr(self, 'goal_y_tolerance', float('inf')):
+            if self.last_goal_msg is not None and self.last_goal_dbg is not None:
+                return self.last_goal_msg, self.last_goal_dbg
             return None, None
         self.goal_y_ref = gy
+        self.last_left_line, self.last_right_line = pair
+        if abs(models[0][0][1]) > 1e-6 and abs(models[1][0][1]) > 1e-6:
+            left_x_bot = models[0][1][0] + (h - 1 - models[0][1][1]) * models[0][0][0] / models[0][0][1]
+            right_x_bot = models[1][1][0] + (h - 1 - models[1][1][1]) * models[1][0][0] / models[1][0][1]
+            self.last_lane_width = abs(float(right_x_bot - left_x_bot))
 
         dbg = image.copy()
         for s in ls: cv2.line(dbg, s[:2], s[2:], (255, 0, 0), 1)
@@ -193,7 +248,10 @@ class LineDetector(Node):
         cv2.circle(dbg, (gx_int, gy_int), 7, (255, 255, 0), -1)
         cv2.line(dbg, (ix, iy), (gx_int, gy_int), (255, 255, 0), 2)
 
-        return Point(x=float(gx), y=float(gy), z=0.0), dbg
+        msg = Point(x=float(gx), y=float(gy), z=0.0)
+        self.last_goal_msg = msg
+        self.last_goal_dbg = dbg
+        return msg, dbg
 
 ### ----------------- PUBLISHERS  ----------------- ####
 

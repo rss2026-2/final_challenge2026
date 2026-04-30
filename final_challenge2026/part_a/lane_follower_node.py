@@ -47,7 +47,7 @@ class ParkingController(Node):
         self.declare_parameter("car_length", 0.325)
         self.declare_parameter("max_steering_angle", 0.34)
         self.declare_parameter("velocity", 2.0)
-        self.declare_parameter("lookahead", 0.8)
+        self.declare_parameter("lookahead", 0.0)
         self.CAR_LENGTH = self.get_parameter('car_length').get_parameter_value().double_value
         self.MAX_STEERING_ANGLE = self.get_parameter('max_steering_angle').get_parameter_value().double_value
         self.VELOCITY = self.get_parameter('velocity').get_parameter_value().double_value
