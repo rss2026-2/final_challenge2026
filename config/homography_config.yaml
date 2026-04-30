@@ -1,9 +1,8 @@
 homography_transformer:
   ros__parameters:
-    # Point homography topics
+    # Lane goal topic from detector and transformed output for follower
     point_topic: "/goal_point"
-    point_px_topic: "/point_px"
-    point_marker_topic: "/goal_marker"
+    point_output_topic: "/real_point"
 
     # Lane homography topics
     lane_topic: "/relative_lane"

@@ -1,9 +1,11 @@
 <launch>
 
   <node pkg="final_challenge2026" name="lane_detector_node" exec="lane_detector" output="screen">
+    <param name="goal_topic" value="/goal_point"/>
   </node>
 
   <node pkg="final_challenge2026" name="lane_follower_node" exec="lane_follower" output="screen">
+    <param name="goal_topic" value="/real_point"/>
   </node>
 
   <node pkg="visual_servoing" name="homography_transformer" exec="homography_transformer" output="screen">

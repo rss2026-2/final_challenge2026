@@ -48,6 +48,10 @@ class HomographyTransformer(Node):
         # -- Declared parameters --
         self.declare_parameter('point_objects', ['tl', 'pm', 'person'])        
         self.point_objects = self.get_parameter('point_objects').get_parameter_value().string_array_value
+        self.declare_parameter('point_topic', '/goal_point')
+        self.declare_parameter('point_output_topic', '/real_point')
+        self.point_topic = self.get_parameter('point_topic').value
+        self.point_output_topic = self.get_parameter('point_output_topic').value
 
         # Initialize dictionaries mapping objects to publishers and subscribers
         self.point_pubs = {}
@@ -70,7 +74,7 @@ class HomographyTransformer(Node):
             point_px_sub = self.create_subscription(
             Pixel, 
             point_px_topic, 
-            lambda msg, p_pub=point_pub, m_pub=marker_pub: self.point_px_callback(msg, p_pub, m_pub), 
+            lambda msg, p_pub=point_pub, m_pub=point_marker_pub: self.point_px_callback(msg, p_pub, m_pub), 
             1)
 
             self.point_pubs[obj_name] = point_pub
@@ -78,9 +82,9 @@ class HomographyTransformer(Node):
             self.point_px_subs[obj_name] = point_px_sub
         
         # Click publishers and subscribers
-        self.click_pub = self.create_publisher(Point, '/relative_click', 10)
+        self.click_pub = self.create_publisher(Point, self.point_output_topic, 10)
         self.click_marker_pub = self.create_publisher(Marker, '/click_marker', 10)
-        self.click_px_sub = self.create_subscription(Pixel, "/click_px", self.click_callback, 1)
+        self.click_px_sub = self.create_subscription(Point, self.point_topic, self.click_callback, 1)
 
         if not len(PTS_GROUND_PLANE) == len(PTS_IMAGE_PLANE):
             rclpy.logerr("ERROR: PTS_GROUND_PLANE and PTS_IMAGE_PLANE should be of same length")
@@ -119,9 +123,9 @@ class HomographyTransformer(Node):
     def click_callback(self, msg):
 
         # Call to main function
-        x, y = self.transform_uv_to_xy(msg.u, msg.v)
+        x, y = self.transform_uv_to_xy(msg.x, msg.y)
         
-        self.get_logger().info(f'{msg.u=}, {msg.v=}')
+        self.get_logger().info(f'{msg.x=}, {msg.y=}')
         self.get_logger().info(f'{x=}, {y=}')
         
         # Publish relative xy position of object in real world
