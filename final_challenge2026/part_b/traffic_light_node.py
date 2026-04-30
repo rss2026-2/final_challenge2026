@@ -24,14 +24,13 @@ class TrafficLight(Node):
         # -- ROS2 Topics
         self.declare_parameter('tl_drive_topic', '/vesc/high_level/input/nav_0')
         self.declare_parameter('tl_point_topic', '/tl_relative_point')
-        self.declare_parameter('traffic_light_topic', '/traffic_light')
-        self.declare_parameter('image_topic', '/zed/zed_node/rgb/image_rect_color')
+        # self.declare_parameter('traffic_light_topic', '/traffic_light')
+        self.declare_parameter('traffic_light_topic', '/zed/zed_node/rgb/image_rect_color')
         # self.declare_parameter('red_light_topic', '/red_light')
 
         self.tl_drive_topic = self.get_parameter('tl_drive_topic').get_parameter_value().string_value
         self.tl_point_topic = self.get_parameter('tl_point_topic').get_parameter_value().string_value
         self.traffic_light_topic = self.get_parameter('traffic_light_topic').get_parameter_value().string_value
-        self.image_topic = self.get_parameter('image_topic').get_parameter_value().string_value
         # self.red_light_topic = self.get_parameter('red_light_topic').get_parameter_value().string_value
         ### -- Declared parameters (End) -- ###
 
@@ -43,8 +42,7 @@ class TrafficLight(Node):
 
         # -- Subs
         self.tl_point_sub = self.create_subscription(Point, self.tl_point_topic, self.tl_point_callback, 1)
-        # self.traffic_light_sub = self.create_subscription(Image, self.traffic_light_topic, self.traffic_light_callback, 1)
-        self.traffic_light_sub = self.create_subscription(Image, self.image_topic, self.traffic_light_callback, 1)
+        self.traffic_light_sub = self.create_subscription(Image, self.traffic_light_topic, self.traffic_light_callback, 1)
         # self.red_light_sub = self.create_subscription(Bool, self.red_light_topic, self.red_light_callback, 1)
         ### -- Publishers and Subscribers (End) -- ###
 
