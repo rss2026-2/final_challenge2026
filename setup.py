@@ -31,7 +31,8 @@ setup(
             'homography_transformer_OLD = final_challenge2026.homography_transformer_OLD:main',
             'yolo_detection = final_challenge2026.part_b.yolo_detection_node:main',
             'traffic_light = final_challenge2026.part_b.traffic_light_node:main',
-            'parking_meter = final_challenge2026.part_b.parking_meter_node:main'
+            'parking_meter = final_challenge2026.part_b.parking_meter_node:main',
+            'image_publisher = final_challenge2026.part_b.image_publisher_node:main'
         ],
     },
 )
