@@ -3,7 +3,6 @@
 import cv2
 import numpy as np
 import rclpy
-import torch
 
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
@@ -74,7 +73,7 @@ class YoloDetection(Node):
             .double_value
         )
 
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.device = "cpu"
         self.model = YOLO(self.model_name)
         self.model.to(self.device)
 
@@ -97,6 +96,8 @@ class YoloDetection(Node):
             Image, self.camera_topic, self.on_image, 1)
         self.pub = self.create_publisher(
             Image, self.publish_topic, 10)
+        
+        self.get_logger().info(f"=== YOLO Annotator Node Initialized ===")
 
     def get_class_color_map(self) -> dict[str, tuple[int, int, int]]:
         """

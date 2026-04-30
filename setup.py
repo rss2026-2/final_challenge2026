@@ -19,7 +19,7 @@ setup(
         (os.path.join('share', package_name, 'traffic_light_imgs'), glob('final_challenge2026/part_b/computer_vision/traffic_light_imgs/*.jpg')),
         (os.path.join('lib/', package_name, "computer_vision"), glob('final_challenge2026/part_b/computer_vision/*.py')),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'visual_servoing'],
     zip_safe=True,
     maintainer='MIT RSS',
     maintainer_email='racecar@mit.edu',
