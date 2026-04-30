@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 
 from sensor_msgs.msg import Image
-from std_msgs.msg import Header, Bool
+from std_msgs.msg import Bool
 
 import cv2
 from cv_bridge import CvBridge
