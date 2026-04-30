@@ -39,11 +39,15 @@ class YoloDetection(Node):
         self.declare_parameter('tl_point_px_topic', '/tl_point_px')
         self.declare_parameter('pm_point_px_topic', '/pm_point_px')
         self.declare_parameter('person_point_px_topic', '/person_point_px')
+        self.declare_parameter('camera_topic', '/zed/zed_node/rgb/image_rect_color')
+        self.declare_parameter('publish_topic', '/yolo/annotated_image')
 
         self.traffic_light_topic = self.get_parameter('traffic_light_topic').value
         self.tl_point_px_topic = self.get_parameter('tl_point_px_topic').value
         self.pm_point_px_topic = self.get_parameter('pm_point_px_topic').value
         self.person_point_px_topic = self.get_parameter('person_point_px_topic').value
+        self.camera_topic = self.get_parameter('camera_topic').value
+        self.publish_topic = self.get_parameter('publish_topic').value
 
         # -- Publishers and subscribers --
         self.traffic_light_pub = self.create_publisher(Image, self.traffic_light_topic, 10)
@@ -90,9 +94,9 @@ class YoloDetection(Node):
         # Create publisher and subscribers
         self.bridge = CvBridge()
         self.sub = self.create_subscription(
-            Image, "/zed/zed_node/rgb/image_rect_color", self.on_image, 1)
+            Image, self.camera_topic, self.on_image, 1)
         self.pub = self.create_publisher(
-            Image, "/yolo/annotated_image", 10)
+            Image, self.publish_topic, 10)
 
     def get_class_color_map(self) -> dict[str, tuple[int, int, int]]:
         """
@@ -245,6 +249,11 @@ class YoloDetection(Node):
             pixel_msg.u = float(x_mid)
             pixel_msg.v = float(det.y2)
 
+            if detection_name is not None:
+                self.get_logger().info(f"YOLO has detected: {detection_name}")
+            else:
+                self.get_logger().warn(f"YOLO could not detect anything")
+                
             publisher = None
             # Use the correct publisher depending on what the detection is
             if detection_name == 'parking meter':
