@@ -12,10 +12,11 @@ setup(
     data_files=[
         ('share/' + package_name, ['package.xml', 'README.md']),
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
-        (os.path.join('share', package_name, 'launch'), glob('launch/*launch.*')),
+        (os.path.join('share', package_name, 'launch'), glob('launch/**/*.launch.*', recursive = True)),
         (os.path.join('share', package_name, 'media'), glob('media/*')),
         (os.path.join('share', package_name, 'racetrack_images'), glob('racetrack_images/*/*.png')),
-        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'config'), glob('config/**/*.yaml', recursive = True)),
+        (os.path.join('share', package_name, 'traffic_light_imgs'), glob('final_challenge2026/part_b/computer_vision/traffic_light_imgs/*.jpg')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
