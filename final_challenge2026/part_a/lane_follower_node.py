@@ -32,7 +32,7 @@ class LaneFollower(Node):
         # visualize the target point
         self.declare_parameter("target_point_topic", '/target_point')
         self.TARGET_POINT_TOPIC = self.get_parameter('target_point_topic').value
-        self.target_pub = self.create_publisher(Point, self.TARGET_POINT_TOPIC, 10)
+        self.target_pub = self.create_publisher(ConeLocation, self.TARGET_POINT_TOPIC, 10)
 
         # probably won't need these because we aren't stopping.
         self.parking_distance_min = 0.45 # meters; try playing with this number! it should be 1.5 - 2 feet away (0.45 - 0.6 m)
