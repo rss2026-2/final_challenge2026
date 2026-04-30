@@ -152,7 +152,7 @@ class LaneFollower(Node):
 
 
 
-    def get_point_on_line(self, p2: tuple(float, float), lookahead_dist: float, p1: tuple(float, float) = (0,0)):
+    def get_point_on_line(self, p2, lookahead_dist: float, p1 = (0,0)):
         """
         Finds a point on a line segment (p1->p2) at a specific lookahead distance from p1.
         """
