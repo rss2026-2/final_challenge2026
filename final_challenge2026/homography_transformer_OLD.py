@@ -5,13 +5,9 @@ from rclpy.node import Node
 import numpy as np
 
 import cv2
-from cv_bridge import CvBridge, CvBridgeError
+from cv_bridge import CvBridge
 
-from std_msgs.msg import String
-from sensor_msgs.msg import Image
-from ackermann_msgs.msg import AckermannDriveStamped
-from visualization_msgs.msg import Marker
-from vs_msgs.msg import ConeLocation, ConeLocationPixel
+from vs_msgs.msg import ConeLocation
 from geometry_msgs.msg import Point
 
 # The following collection of pixel locations and corresponding relative
@@ -46,11 +42,7 @@ class HomographyTransformer(Node):
     def __init__(self):
         super().__init__("homography_transformer")
 
-        self.cone_pub = self.create_publisher(ConeLocation, "/relative_cone", 10)
-        self.goal_pub = self.create_publisher(ConeLocationPixel, "/real_point", 10)
-        self.marker_pub = self.create_publisher(Marker, "/cone_marker", 1)
-        self.cone_px_sub = self.create_subscription(ConeLocationPixel, "/relative_cone_px", self.cone_detection_callback, 1)
-        # added
+        self.goal_pub = self.create_publisher(ConeLocation, "/real_point", 10)
         self.click_px_sub = self.create_subscription(Point, "/goal_point", self.click_callback, 1)
 
         if not len(PTS_GROUND_PLANE) == len(PTS_IMAGE_PLANE):
@@ -70,37 +62,16 @@ class HomographyTransformer(Node):
 
         self.get_logger().info("Homography Transformer Initialized")
 
-    def cone_detection_callback(self, msg):
-        # Extract information from message
-        u = msg.u
-        v = msg.v
-
-        # Call to main function
-        x, y = self.transformUvToXy(u, v)
-
-        # Publish relative xy position of object in real world
-        relative_xy_msg = ConeLocation()
-        relative_xy_msg.x_pos = x
-        relative_xy_msg.y_pos = y
-
-        self.draw_marker(x, y, '/zed_left_camera_optical_frame')
-        self.cone_pub.publish(relative_xy_msg)
-
     def click_callback(self, msg):
-        # self.get_logger().info("Click detected")
         u = msg.x
         v = msg.y
 
-
         x, y = self.transformUvToXy(u, v)
 
-        # Publish transformed lane point for the follower. The message type is
-        # ConeLocationPixel, so we carry the ground-plane x/y in u/v.
-        relative_xy_msg = ConeLocationPixel()
-        relative_xy_msg.u = float(x)
-        relative_xy_msg.v = float(y)
+        relative_xy_msg = ConeLocation()
+        relative_xy_msg.x_pos = float(x)
+        relative_xy_msg.y_pos = float(y)
 
-        self.draw_marker(x, y, "/base_link")
         self.goal_pub.publish(relative_xy_msg)
 
 
@@ -123,28 +94,7 @@ class HomographyTransformer(Node):
         homogeneous_xy = xy * scaling_factor
         x = homogeneous_xy[0, 0]
         y = homogeneous_xy[1, 0]
-        # self.get_logger().info(f"x-value: {x} \n y-value: {y}")
         return x, y
-
-    def draw_marker(self, cone_x, cone_y, message_frame):
-        """
-        Publish a marker to represent the cone in rviz.
-        (Call this function if you want)
-        """
-        marker = Marker()
-        marker.header.frame_id = message_frame
-        marker.type = marker.CYLINDER
-        marker.action = marker.ADD
-        marker.scale.x = .2
-        marker.scale.y = .2
-        marker.scale.z = .2
-        marker.color.a = 1.0
-        marker.color.r = 1.0
-        marker.color.g = .5
-        marker.pose.orientation.w = 1.0
-        marker.pose.position.x = cone_x
-        marker.pose.position.y = cone_y
-        self.marker_pub.publish(marker)
 
 
 def main(args=None):
