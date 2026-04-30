@@ -46,9 +46,9 @@ class HomographyTransformer(Node):
     def __init__(self):
         super().__init__("homography_transformer")
 
-        self.cone_pub = self.create_publisher(ConeLocation, "/real_point", 10)
+        self.cone_pub = self.create_publisher(Point, "/real_point", 10)
         self.marker_pub = self.create_publisher(Marker, "/cone_marker", 1)
-        self.cone_px_sub = self.create_subscription(ConeLocationPixel, "/relative_cone_px", self.cone_detection_callback, 1)
+        self.cone_px_sub = self.create_subscription(Pixel, "/relative_cone_px", self.cone_detection_callback, 1)
         # added
         self.click_px_sub = self.create_subscription(Point, "/goal_point", self.click_callback, 1)
 

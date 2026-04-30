@@ -9,6 +9,9 @@ from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
 from std_msgs.msg import Header
 from geometry_msgs.msg import Point
 
+from visualization_msgs.msg import Marker
+from viz_utils.visualization_tools import VisualizationTools
+
 class LaneFollower(Node):
     """
     A controller for parking in front of a cone.
@@ -18,41 +21,45 @@ class LaneFollower(Node):
 
     def __init__(self):
         super().__init__("lane_follower")
-        # drive topic to publish to
-        self.declare_parameter("drive_topic")
-        self.DRIVE_TOPIC = self.get_parameter("drive_topic").value  # set in launch file; different for simulator vs racecar
-        self.drive_pub = self.create_publisher(AckermannDriveStamped, self.DRIVE_TOPIC, 10)
+        
+        # -- Declared parameters --
+        self.declare_parameter('drive_topic')
+        self.declare_parameter('goal_point_topic', '/goal_point')
+        self.declare_parameter('target_point_topic', '/target_point')
 
-        # get the point from the lane_detector_node
-        self.declare_parameter('goal_topic', '/goal_point')
-        self.goal_topic = self.get_parameter('goal_topic').value
-        self.create_subscription(Point, self.goal_topic, self.relative_cone_callback, 1)
+        self.declare_parameter("car_length", 0.325)
+        self.declare_parameter("max_steering_angle", 0.34)
+        self.declare_parameter("velocity", 1.0)
+        self.declare_parameter("lookahead", 0.8)
+        self.declare_parameter("timer_rate", 20)
 
-        # visualize the target point
-        self.declare_parameter("target_point_topic", '/target_point')
-        self.TARGET_POINT_TOPIC = self.get_parameter('target_point_topic').value
-        self.target_pub = self.create_publisher(Point, self.TARGET_POINT_TOPIC, 10)
 
+        self.drive_topic = self.get_parameter('drive_topic').value  # set in launch file; different for simulator vs racecar
+        self.goal_point_topic = self.get_parameter('goal_point_topic').value
+        self.target_point_topic = self.get_parameter('target_point_topic').value
+
+        self.CAR_LENGTH = self.get_parameter('car_length').get_parameter_value().double_value
+        self.MAX_STEERING_ANGLE = self.get_parameter('max_steering_angle').get_parameter_value().double_value
+        self.VELOCITY = self.get_parameter('velocity').get_parameter_value().double_value
+        self.LOOKAHEAD = self.get_parameter('lookahead').get_parameter_value().double_value
+        timer_rate = self.get_parameter('timer_rate').get_parameter_value().double_value
+
+        # -- Publishers and subscribers --
+        self.goal_point_sub = self.create_subscription(Point, self.goal_point_topic, self.goal_point_callback, 1)
+
+        self.drive_pub = self.create_publisher(AckermannDriveStamped, self.drive_topic, 10)
+        self.target_point_pub = self.create_publisher(Marker, self.target_point_topic, 10)
+
+        self.create_timer(1/timer_rate, self.timer_drive_pub_callback)
+
+        # -- Initialized variables --
         # probably won't need these because we aren't stopping.
         self.parking_distance_min = 0.45 # meters; try playing with this number! it should be 1.5 - 2 feet away (0.45 - 0.6 m)
         self.parking_distance_max = 0.55
         self.relative_x = 0.0
         self.relative_y = 0.0
-
-        # added
-        self.declare_parameter("car_length", 0.325)
-        self.declare_parameter("max_steering_angle", 0.34)
-        self.declare_parameter("velocity", 1.0)
-        self.declare_parameter("lookahead", 0.8)
-        self.CAR_LENGTH = self.get_parameter('car_length').get_parameter_value().double_value
-        self.MAX_STEERING_ANGLE = self.get_parameter('max_steering_angle').get_parameter_value().double_value
-        self.VELOCITY = self.get_parameter('velocity').get_parameter_value().double_value
-        self.LOOKAHEAD = self.get_parameter('lookahead').get_parameter_value().double_value
-
-        timer_rate = 20 # rate at which we publish the drive command
-        self.create_timer(1/timer_rate, self.timer_drive_pub_callback)
-
-        self.get_logger().info("Parking Controller Initialized")
+        
+        self.get_logger().info("=== Parking Controller Initialized ===")
 
     def timer_drive_pub_callback(self):
         """Calculates and publishes the drive command at a specific frequency. """
@@ -69,13 +76,16 @@ class LaneFollower(Node):
             # choose target at the lookahead distance
             target_point = self.get_point_on_line((self.relative_x, self.relative_y), self.LOOKAHEAD)
 
-            pure_persuit_drive_cmd = self.update_control(target_point) # get the drive command w speed and steer
+            # publish the target point
+            VisualizationTools.draw_sphere(target_point[0], target_point[1], self.target_point_pub, header.stamp, header.frame_id)
 
-            drive_cmd.drive = pure_persuit_drive_cmd
+            pure_pursuit_drive_cmd = self.update_control(target_point) # get the drive command w speed and steer
+
+            drive_cmd.drive = pure_pursuit_drive_cmd
 
             self.drive_pub.publish(drive_cmd)
 
-    def relative_cone_callback(self, msg):
+    def goal_point_callback(self, msg):
         """Caches the pose of the intersection and calculates new drive command"""
         self.relative_x = msg.x
         self.relative_y = msg.y
@@ -168,10 +178,7 @@ class LaneFollower(Node):
 
         # find the point
         new_point_vec = p1_vec + (unit_vec * lookahead_dist)
-        new_point_msg = Point(x=new_point_vec[0], y=new_point_vec[1])
 
-        # publish and return
-        self.target_pub.publish(new_point_msg)
         return new_point_vec
 
 def main(args=None):

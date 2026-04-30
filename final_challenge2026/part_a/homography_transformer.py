@@ -43,43 +43,34 @@ METERS_PER_INCH = 0.0254
 
 class HomographyTransformer(Node):
     def __init__(self):
-        super().__init__("homography_transformer_b")
+        super().__init__("homography_transformer_a")
 
-        # -- Declared parameters --
-        self.declare_parameter('point_objects', ['tl', 'pm', 'person'])        
-        self.point_objects = self.get_parameter('point_objects').get_parameter_value().string_array_value
+        # -- Declared parameters -- 
+        self.declare_parameter("goal_point_topic", "/goal_point")
+        self.declare_parameter("goal_point_px_topic", "/goal_point_px")
+        self.declare_parameter("goal_point_marker_topic", "/goal_point_marker")
 
-        # Initialize dictionaries mapping objects to publishers and subscribers
-        self.point_pubs = {}
-        self.point_marker_pubs = {}
-        self.point_px_subs = {}
+        self.declare_parameter("line_topic", "/relative_line")
+        self.declare_parameter("line_px_topic", "/line_px")
+        self.declare_parameter("line_marker_topic", "/line_marker")
 
-        # Create publishers and subscribers by iterating through each object in point objects
-        for obj_name in self.point_objects:
+        self.goal_point_topic = self.get_parameter("goal_point_topic").get_parameter_value().string_value
+        self.goal_point_px_topic = self.get_parameter("goal_point_px_topic").get_parameter_value().string_value
+        self.goal_point_marker_topic = self.get_parameter("goal_point_marker_topic").get_parameter_value().string_value
 
-            # Create topic names
-            point_topic = f'/{obj_name}_relative_point'
-            point_px_topic = f'/{obj_name}_point_px'
-            point_marker_topic = f'/{obj_name}_point_marker'
+        self.line_topic = self.get_parameter("line_topic").get_parameter_value().string_value
+        self.line_px_topic = self.get_parameter("line_px_topic").get_parameter_value().string_value
+        self.line_marker_topic = self.get_parameter("line_marker_topic").get_parameter_value().string_value
 
-            # Create publishers
-            point_pub = self.create_publisher(Point, point_topic, 10)
-            point_marker_pub = self.create_publisher(Marker, point_marker_topic, 10)
+        # -- Publishers and subscribers --
+        self.goal_point_px_sub = self.create_subscription(Pixel, self.goal_point_px_topic, self.goal_point_px_callback, 1)
+        self.goal_point_pub = self.create_publisher(Point, self.goal_point_topic, 10)
+        self.goal_point_marker_pub = self.create_publisher(Marker, self.goal_point_marker_topic, 1)
+   
+        self.line_px_sub = self.create_subscription(PixelArray, self.line_px_topic, self.line_px_callback, 1)
+        self.line_pub = self.create_publisher(Polygon, self.line_topic, 10)
+        self.line_marker_pub = self.create_publisher(Marker, self.line_marker_topic, 1)
 
-            # Create subscriber, which uses a generic callback function with publishers as args
-            point_px_sub = self.create_subscription(
-            Pixel, 
-            point_px_topic, 
-            lambda msg, p_pub=point_pub, m_pub=marker_pub: self.point_px_callback(msg, p_pub, m_pub), 
-            1)
-
-            self.point_pubs[obj_name] = point_pub
-            self.point_marker_pubs[obj_name] = point_marker_pub
-            self.point_px_subs[obj_name] = point_px_sub
-        
-        # Click publishers and subscribers
-        self.click_pub = self.create_publisher(Point, '/relative_click', 10)
-        self.click_marker_pub = self.create_publisher(Marker, '/click_marker', 10)
         self.click_px_sub = self.create_subscription(Pixel, "/click_px", self.click_callback, 1)
 
         if not len(PTS_GROUND_PLANE) == len(PTS_IMAGE_PLANE):
@@ -99,7 +90,7 @@ class HomographyTransformer(Node):
 
         self.get_logger().info("Homography Transformer Initialized")
     
-    def point_px_callback(self, msg, point_pub, point_marker_pub):
+    def goal_point_px_callback(self, msg):
         # Extract information from message
         u = msg.u
         v = msg.v
@@ -113,8 +104,8 @@ class HomographyTransformer(Node):
         relative_xy_msg.x = float(x)
         relative_xy_msg.y = float(y)
 
-        point_pub.publish(relative_xy_msg)
-        VisualizationTools.draw_cylinder(x, y, point_marker_pub, self.get_clock().now(), "/base_link")        
+        self.goal_point_pub.publish(relative_xy_msg)
+        VisualizationTools.draw_cylinder(x, y, self.goal_point_marker_pub, self.get_clock().now(), "/base_link")        
 
     def click_callback(self, msg):
 
@@ -130,9 +121,40 @@ class HomographyTransformer(Node):
         relative_xy_msg.y = float(y)
         y += 0.06 # Zed camera to base_link offset
         
-        self.click_pub.publish(relative_xy_msg)
-        VisualizationTools.draw_cylinder(x, y, self.click_marker_pub, self.get_clock().now(), "/base_link")        
+        self.goal_point_pub.publish(relative_xy_msg)
+        VisualizationTools.draw_cylinder(x, y, self.goal_point_marker_pub, self.get_clock().now(), "/base_link")        
     
+    def line_px_callback(self, msg):
+        
+        world_points = Polygon()
+        world_points_raw = []
+
+        pixels = msg.pixels
+        for i in range(0, len(pixels) - 1, 2):
+            u1, v1 = pixels[i].u, pixels[i].v
+            u2, v2 = pixels[i + 1].u, pixels[i + 1].v
+
+            x1, y1 = self.transform_uv_to_xy(u1, v1)
+            x2, y2 = self.transform_uv_to_xy(u2, v2)
+
+            point1 = Point32()
+            point1.x = float(x1)
+            point1.y = float(y1)
+            point1.z = 0.0
+
+            point2 = Point32()
+            point2.x = float(x2)
+            point2.y = float(y2)
+            point2.z = 1.0
+
+            world_points.points.extend([point1, point2])
+            world_points_raw.extend([[x1,y1],[x2,y2]]) # For drawing line in real world
+
+        world_points_raw = np.array(world_points_raw)
+
+        self.line_pub.publish(world_points)
+        VisualizationTools.draw_line(world_points_raw[:, 0], world_points_raw[:, 1], self.line_marker_pub, self.get_clock().now())
+
     def transform_uv_to_xy(self, u, v):
         """
         u and v are pixel coordinates.

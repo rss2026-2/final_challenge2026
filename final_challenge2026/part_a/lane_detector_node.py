@@ -10,6 +10,8 @@ from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseArray, Point
 from sensor_msgs.msg import Image
 
+from vs_msgs.msg import Pixel
+
 class LineDetector(Node):
     """
     Uses hough line detector to outline the track lines. Estimates the left and right lines
@@ -24,11 +26,11 @@ class LineDetector(Node):
         self.declare_parameter('high_threshold', 150)
         self.declare_parameter('direction', 'left')
         self.declare_parameter('goal_y_offset', 70)
-        self.declare_parameter('goal_topic', '/goal_point')
+        self.declare_parameter('goal_point_px_topic', '/goal_point_px')
 
         self.debug_topic = self.get_parameter('debug_topic').value
         self.image_topic = self.get_parameter('image_topic').value
-        self.goal_topic = self.get_parameter('goal_topic').value
+        self.goal_point_px_topic = self.get_parameter('goal_point_px_topic').value
         self.low_threshold = self.get_parameter('low_threshold').value
         self.high_threshold = self.get_parameter('high_threshold').value
         self.direction = self.get_parameter('direction').value
@@ -36,7 +38,7 @@ class LineDetector(Node):
 
         self.image_sub = self.create_subscription(Image, self.image_topic, self.hough_fallback, 5)
         self.debug_pub = self.create_publisher(Image, self.debug_topic, 10)
-        self.goal_pub = self.create_publisher(Point, self.goal_topic, 10)
+        self.goal_pub = self.create_publisher(Pixel, self.goal_point_px_topic, 10)
         self.bridge = CvBridge()
 
         # cache lanes in case of frames dropping
@@ -193,7 +195,7 @@ class LineDetector(Node):
         cv2.circle(dbg, (gx_int, gy_int), 7, (255, 255, 0), -1)
         cv2.line(dbg, (ix, iy), (gx_int, gy_int), (255, 255, 0), 2)
 
-        return Point(x=float(gx), y=float(gy), z=0.0), dbg
+        return Pixel(u=float(gx), v=float(gy)), dbg
 
 ### ----------------- PUBLISHERS  ----------------- ####
 

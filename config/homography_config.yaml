@@ -2,7 +2,7 @@ homography_transformer:
   ros__parameters:
     # Point homography topics
     point_topic: "/goal_point"
-    point_px_topic: "/point_px"
+    point_px_topic: "/goal_point_px"
     point_marker_topic: "/goal_marker"
 
     # Lane homography topics

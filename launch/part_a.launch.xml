@@ -6,7 +6,7 @@
   <node pkg="final_challenge2026" name="lane_follower_node" exec="lane_follower" output="screen">
   </node>
 
-  <node pkg="visual_servoing" name="homography_transformer" exec="homography_transformer" output="screen">
+  <node pkg="visual_servoing" name="homography_transformer_a" exec="homography_transformer_a" output="screen">
     <param from="$(find-pkg-share final_challenge2026)/config/homography_config.yaml"/>
   </node>
 

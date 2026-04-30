@@ -1,6 +1,6 @@
 <launch>
 
-    <node pkg="visual_servoing" name="homography_transformer" exec="homography_transformer" output="screen">
+    <node pkg="visual_servoing" name="homography_transformer_b" exec="homography_transformer_b" output="screen">
         <param from="$(find-pkg-share final_challenge2026)/config/homography_config.yaml"/>
     </node>
 

@@ -30,7 +30,9 @@ setup(
             'lane_follower = final_challenge2026.part_a.lane_follower_node:main',
             'yolo_detection = final_challenge2026.part_b.yolo_detection_node:main',
             'traffic_light = final_challenge2026.part_b.traffic_light_node:main',
-            'parking_meter = final_challenge2026.part_b.parking_meter_node:main'
+            'parking_meter = final_challenge2026.part_b.parking_meter_node:main',
+            'homography_transformer_a = final_challenge2026.part_a.homography_transformer:main',
+            'homography_transformber_b = final_challenge2026.part_b.homography_transformer:main'
         ],
     },
 )
