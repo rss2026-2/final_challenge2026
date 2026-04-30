@@ -11,8 +11,8 @@ from geometry_msgs.msg import Point
 
 class LaneFollower(Node):
     """
-    A controller for parking in front of a cone.
-    Listens for a relative cone location and publishes control commands.
+    A pure pursuit controller for following the goal point from the lane detector.
+    Listens for goal points and publishes control commands immediately on receipt.
     Can be used in the simulator and on the real robot.
     """
 
@@ -26,7 +26,7 @@ class LaneFollower(Node):
         # get the point from the lane_detector_node
         self.declare_parameter('goal_topic', '/goal_point')
         self.goal_topic = self.get_parameter('goal_topic').value
-        self.create_subscription(Point, self.goal_topic, self.relative_cone_callback, 1)
+        self.create_subscription(Point, self.goal_topic, self.goal_point_callback, 1)
 
         # visualize the target point
         self.declare_parameter("target_point_topic", '/target_point')
@@ -49,36 +49,21 @@ class LaneFollower(Node):
         self.VELOCITY = self.get_parameter('velocity').get_parameter_value().double_value
         self.LOOKAHEAD = self.get_parameter('lookahead').get_parameter_value().double_value
 
-        timer_rate = 20 # rate at which we publish the drive command
-        self.create_timer(1/timer_rate, self.timer_drive_pub_callback)
+        self.get_logger().info("Lane Follower Initialized")
 
-        self.get_logger().info("Parking Controller Initialized")
+    def goal_point_callback(self, msg):
+        """Computes and publishes the drive command whenever a new goal point arrives."""
+        goal_point = (msg.x, msg.y)
+        target_point = self.get_point_on_line(goal_point, self.LOOKAHEAD)
+        drive = self.update_control(target_point)
 
-    def timer_drive_pub_callback(self):
-        """Calculates and publishes the drive command at a specific frequency. """
-        if self.relative_x is not None and self.relative_y is not None:
-            # only calculate with the relevant pose
-            drive_cmd = AckermannDriveStamped()
-            # self.get_logger().info(f'New Drive Command')
-
-            header = Header()
-            header.stamp = self.get_clock().now().to_msg()
-            header.frame_id = 'base_link'
-            drive_cmd.header = header
-
-            # choose target at the lookahead distance
-            target_point = self.get_point_on_line((self.relative_x, self.relative_y), self.LOOKAHEAD)
-
-            pure_persuit_drive_cmd = self.update_control(target_point) # get the drive command w speed and steer
-
-            drive_cmd.drive = pure_persuit_drive_cmd
-
-            self.drive_pub.publish(drive_cmd)
-
-    def relative_cone_callback(self, msg):
-        """Caches the pose of the intersection and calculates new drive command"""
-        self.relative_x = msg.x
-        self.relative_y = msg.y
+        drive_cmd = AckermannDriveStamped()
+        header = Header()
+        header.stamp = self.get_clock().now().to_msg()
+        header.frame_id = 'base_link'
+        drive_cmd.header = header
+        drive_cmd.drive = drive
+        self.drive_pub.publish(drive_cmd)
 
 
     def error_publisher(self):
@@ -105,29 +90,6 @@ class LaneFollower(Node):
         Returns the ackerman drive command
         """
         drive = AckermannDrive()
-        # TODO: if there's a way to know if we lost the lines to give a stop command?
-        # in the case that the cone is behind the car, can also be modified for when we don't see the car
-        # if self.relative_x < 0:
-        #     drive.speed = -0.5
-        #     # steer toward the cone while reversing
-        #     drive.steering_angle = float(np.clip(
-        #         -np.sign(self.relative_y) * self.MAX_STEERING_ANGLE * 0.6,
-        #         -self.MAX_STEERING_ANGLE,
-        #         self.MAX_STEERING_ANGLE
-        #     ))
-        #     return drive
-
-
-        # Check to see if we are too close
-        # goal_dist = np.sqrt(self.relative_x**2 + self.relative_y**2)
-
-        # # if we are in the stopping range and pointed at the cone, it's okay
-        # if goal_dist < self.parking_distance_max and goal_dist > self.parking_distance_min:
-        #     drive.speed = 0.0
-        #     drive.steering_angle = 0.0
-        #     return drive
-
-        # calculate with the pure persuit
         new_steering_angle = self.compute_feedback_angle(target_point)
 
         # it is in front of us reasonable angle, give it that angle
