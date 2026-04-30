@@ -42,15 +42,13 @@ class LineDetector(Node):
         # cache lanes in case of frames dropping
         self.last_left_line = None
         self.last_right_line = None
-        self.last_lane_width = None
         self.last_goal_msg = None
         self.last_goal_dbg = None
-        self.smoothed_left_line = None
-        self.goal_y_ref = None
-        self.goal_y_tolerance = 80.0
-        self.line_alpha = 0.25
-        self.goal_alpha = 0.18
-        self.goal_lane_offset_ratio = 0.23
+        self.left_fit = None
+        self.right_fit = None
+        self.line_alpha = 0.22
+        self.goal_alpha = 0.2
+        self.goal_row_ratio = 0.62
 
         # use this line to debug with static images:
         # self.load_and_publish_image('src/final_challenge2026/racetrack_images/lane_3/image45.png')
@@ -102,10 +100,9 @@ class LineDetector(Node):
         """
         Stable left-turn lane tracking.
 
-        We fit only the left boundary, smooth that fit across frames, and
-        derive a goal point by shifting a fixed distance to the right of the
-        smoothed boundary. This avoids the instability from trying to solve
-        both lane boundaries every frame.
+        We fit the left and right lane boundaries independently as x(y)
+        lines, smooth each fit across frames, and then publish a goal point
+        on a fixed image row at the center of the lane.
         """
         if lines is None:
             if self.last_goal_msg is not None and self.last_goal_dbg is not None:
@@ -117,7 +114,9 @@ class LineDetector(Node):
 
         h, w = image.shape[:2]
         y_bot = h - 1
+        goal_y = int(np.clip(h * self.goal_row_ratio, int(h * 0.35), h - 1))
         left_segments = []
+        right_segments = []
 
         mid_x = w / 2.0
         for x1, y1, x2, y2 in [s[0] for s in lines]:
@@ -125,92 +124,103 @@ class LineDetector(Node):
                 x_bot = x1 + (y_bot - y1) * (x2 - x1) / (y2 - y1)
                 if x_bot < mid_x:
                     left_segments.append((x1, y1, x2, y2))
+                else:
+                    right_segments.append((x1, y1, x2, y2))
 
         dbg = image.copy()
         for s in left_segments:
             cv2.line(dbg, s[:2], s[2:], (255, 0, 0), 2)
+        for s in right_segments:
+            cv2.line(dbg, s[:2], s[2:], (0, 255, 0), 2)
 
-        if not left_segments and self.smoothed_left_line is None:
+        left_fit = self._fit_and_smooth_boundary(left_segments, self.left_fit)
+        right_fit = self._fit_and_smooth_boundary(right_segments, self.right_fit)
+
+        if left_fit is not None:
+            self.left_fit = left_fit
+        if right_fit is not None:
+            self.right_fit = right_fit
+
+        if self.left_fit is None or self.right_fit is None:
             if self.last_goal_msg is not None and self.last_goal_dbg is not None:
                 self.goal_pub.publish(self.last_goal_msg)
                 self.publish_debug_image(self.last_goal_dbg)
                 return self.last_goal_msg
-            self.get_logger().info("ERROR: No stable left lane yet.")
+            self.get_logger().info("ERROR: No stable lane pair yet.")
             return
 
-        # Fit a single stable left boundary from all candidate segments.
-        if left_segments:
-            pts = []
-            for s in left_segments:
-                pts.append([s[0], s[1]])
-                pts.append([s[2], s[3]])
-            pts = np.array(pts, dtype=np.float32)
-            vx, vy, x0, y0 = cv2.fitLine(pts, cv2.DIST_L2, 0, 0.01, 0.01).flatten()
-            if abs(vy) < 1e-6:
-                if self.last_goal_msg is not None and self.last_goal_dbg is not None:
-                    self.goal_pub.publish(self.last_goal_msg)
-                    self.publish_debug_image(self.last_goal_dbg)
-                    return self.last_goal_msg
-                return
-
-            goal_y = int(np.clip(h - 1 - self.goal_y_offset, int(h * 0.35), h - 1))
-            y_top = int(np.clip(goal_y - 80, 0, h - 1))
-
-            x_bot = float(x0 + (y_bot - y0) * vx / vy)
-            x_goal_line = float(x0 + (goal_y - y0) * vx / vy)
-            x_top = float(x0 + (y_top - y0) * vx / vy)
-
-            new_left_line = np.array([[x_bot, y_bot], [x_top, y_top]], dtype=np.float32)
-            if self.smoothed_left_line is None:
-                self.smoothed_left_line = new_left_line
-            else:
-                self.smoothed_left_line = (
-                    self.line_alpha * new_left_line +
-                    (1.0 - self.line_alpha) * self.smoothed_left_line
-                )
-        else:
-            # No new detection this frame, reuse the last stable line.
-            new_left_line = self.smoothed_left_line
-            goal_y = int(np.clip(h - 1 - self.goal_y_offset, int(h * 0.35), h - 1))
-            y_top = int(np.clip(goal_y - 80, 0, h - 1))
-
-        left_line = self.smoothed_left_line if self.smoothed_left_line is not None else new_left_line
-        (x_bot, y_bot_i), (x_top, y_top_i) = left_line
-        if abs(y_top_i - y_bot_i) < 1e-6:
+        goal_x = self._lane_center_x_at_y(goal_y)
+        if goal_x is None:
             if self.last_goal_msg is not None and self.last_goal_dbg is not None:
                 self.goal_pub.publish(self.last_goal_msg)
                 self.publish_debug_image(self.last_goal_dbg)
                 return self.last_goal_msg
             return None, None
 
-        # Interpolate the left boundary at the goal row, then shift right into the lane.
-        t = (goal_y - y_bot_i) / (y_top_i - y_bot_i)
-        x_on_left = x_bot + t * (x_top - x_bot)
-        lane_offset_px = max(50.0, w * self.goal_lane_offset_ratio)
-        goal_x = np.clip(x_on_left + lane_offset_px, 0, w - 1)
-
         goal_msg = Point(x=float(goal_x), y=float(goal_y), z=0.0)
-        if self.smoothed_left_line is not None:
-            left_debug = self.smoothed_left_line.astype(np.int32)
-            cv2.line(dbg, tuple(left_debug[0]), tuple(left_debug[1]), (255, 0, 255), 4)
+
+        self._draw_boundary(dbg, self.left_fit, (255, 0, 255))
+        self._draw_boundary(dbg, self.right_fit, (0, 255, 255))
         cv2.circle(dbg, (int(goal_x), int(goal_y)), 7, (255, 255, 0), -1)
 
         if self.last_goal_msg is None:
             self.last_goal_msg = goal_msg
-            self.last_goal_dbg = dbg
         else:
             self.last_goal_msg = Point(
-                x=float(self.goal_alpha * goal_msg.x + (1.0 - self.goal_alpha) * self.last_goal_msg.x),
-                y=float(self.goal_alpha * goal_msg.y + (1.0 - self.goal_alpha) * self.last_goal_msg.y),
+                x=float(self.line_alpha * goal_msg.x + (1.0 - self.line_alpha) * self.last_goal_msg.x),
+                y=float(goal_msg.y),
                 z=0.0,
             )
-            self.last_goal_dbg = dbg
+        self.last_goal_dbg = dbg
 
-        self.last_left_line = tuple(map(int, [int(x_bot), int(y_bot_i), int(x_top), int(y_top_i)]))
-        self.goal_y_ref = goal_y
         self.goal_pub.publish(self.last_goal_msg)
         self.publish_debug_image(dbg)
         return self.last_goal_msg
+
+    def _fit_and_smooth_boundary(self, segments, prev_fit):
+        if not segments:
+            return prev_fit
+
+        pts = []
+        for s in segments:
+            pts.append([s[0], s[1]])
+            pts.append([s[2], s[3]])
+        pts = np.array(pts, dtype=np.float32)
+        ys = pts[:, 1]
+        xs = pts[:, 0]
+        if np.ptp(ys) < 1e-6:
+            return prev_fit
+
+        m, b = np.polyfit(ys, xs, 1)
+        fit = np.array([float(m), float(b)], dtype=np.float32)
+
+        if prev_fit is None:
+            return fit
+        return self.line_alpha * fit + (1.0 - self.line_alpha) * prev_fit
+
+    def _x_at_y(self, fit, y):
+        if fit is None:
+            return None
+        return float(fit[0] * y + fit[1])
+
+    def _lane_center_x_at_y(self, y):
+        left_x = self._x_at_y(self.left_fit, y)
+        right_x = self._x_at_y(self.right_fit, y)
+        if left_x is None or right_x is None:
+            return None
+        if left_x > right_x:
+            left_x, right_x = right_x, left_x
+        return float(0.5 * (left_x + right_x))
+
+    def _draw_boundary(self, image, fit, color):
+        if fit is None:
+            return
+        h, w = image.shape[:2]
+        y1 = h - 1
+        y2 = int(h * 0.35)
+        x1 = int(np.clip(self._x_at_y(fit, y1), 0, w - 1))
+        x2 = int(np.clip(self._x_at_y(fit, y2), 0, w - 1))
+        cv2.line(image, (x1, y1), (x2, y2), color, 4)
 
 ### ----------------- PUBLISHERS  ----------------- ####
 

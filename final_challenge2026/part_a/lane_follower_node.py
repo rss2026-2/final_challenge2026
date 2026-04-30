@@ -4,16 +4,13 @@ import rclpy
 from rclpy.node import Node
 import numpy as np
 
-# from vs_msgs.msg import ParkingError
+from vs_msgs.msg import ParkingError
 from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
 from std_msgs.msg import Header
 from geometry_msgs.msg import Point
 from vs_msgs.msg import ConeLocation
-from visualization_msgs.msg import Marker
 
-from viz_utils.visualization_tools import VisualizationTools
-
-class ParkingController(Node):
+class LaneFollower(Node):
     """
     A controller for parking in front of a cone.
     Listens for a relative cone location and publishes control commands.
@@ -21,10 +18,10 @@ class ParkingController(Node):
     """
 
     def __init__(self):
-        super().__init__("parking_controller")
+        super().__init__("lane_follower")
         # drive topic to publish to
-        self.declare_parameter("drive_topic", '/vesc/low_level/input/navigation')
-        self.DRIVE_TOPIC = self.get_parameter("drive_topic", ).value  # set in launch file; different for simulator vs racecar
+        self.declare_parameter("drive_topic", "/vesc/low_level/input/navigation")
+        self.DRIVE_TOPIC = self.get_parameter("drive_topic").value  # set in launch file; different for simulator vs racecar
         self.drive_pub = self.create_publisher(AckermannDriveStamped, self.DRIVE_TOPIC, 10)
 
         # get the point from the lane_detector_node
@@ -35,7 +32,7 @@ class ParkingController(Node):
         # visualize the target point
         self.declare_parameter("target_point_topic", '/target_point')
         self.TARGET_POINT_TOPIC = self.get_parameter('target_point_topic').value
-        self.target_pub = self.create_publisher(Marker, self.TARGET_POINT_TOPIC, 10)
+        self.target_pub = self.create_publisher(ConeLocation, self.TARGET_POINT_TOPIC, 10)
 
         # probably won't need these because we aren't stopping.
         self.parking_distance_min = 0.45 # meters; try playing with this number! it should be 1.5 - 2 feet away (0.45 - 0.6 m)
@@ -46,14 +43,12 @@ class ParkingController(Node):
         # added
         self.declare_parameter("car_length", 0.325)
         self.declare_parameter("max_steering_angle", 0.34)
-        self.declare_parameter("velocity", 2.0)
-        self.declare_parameter("lookahead", 0.0)
+        self.declare_parameter("velocity", 1.0)
+        self.declare_parameter("lookahead", 0.8)
         self.CAR_LENGTH = self.get_parameter('car_length').get_parameter_value().double_value
         self.MAX_STEERING_ANGLE = self.get_parameter('max_steering_angle').get_parameter_value().double_value
         self.VELOCITY = self.get_parameter('velocity').get_parameter_value().double_value
         self.LOOKAHEAD = self.get_parameter('lookahead').get_parameter_value().double_value
-
-        self.drive_cmd = None
 
         timer_rate = 20 # rate at which we publish the drive command
         self.create_timer(1/timer_rate, self.timer_drive_pub_callback)
@@ -61,57 +56,49 @@ class ParkingController(Node):
         self.get_logger().info("Parking Controller Initialized")
 
     def timer_drive_pub_callback(self):
-        """Publishes the drive command at a specific frequency. """
-        if self.drive_cmd is not None:
-            self.drive_pub.publish(self.drive_cmd)
-            # self.error_publisher()
+        """Calculates and publishes the drive command at a specific frequency. """
+        if self.relative_x is not None and self.relative_y is not None:
+            # only calculate with the relevant pose
+            drive_cmd = AckermannDriveStamped()
+            # self.get_logger().info(f'New Drive Command')
+
+            header = Header()
+            header.stamp = self.get_clock().now().to_msg()
+            header.frame_id = 'base_link'
+            drive_cmd.header = header
+
+            # choose target at the lookahead distance
+            target_point = self.get_point_on_line((self.relative_x, self.relative_y), self.LOOKAHEAD)
+
+            pure_persuit_drive_cmd = self.update_control(target_point) # get the drive command w speed and steer
+
+            drive_cmd.drive = pure_persuit_drive_cmd
+
+            self.drive_pub.publish(drive_cmd)
 
     def relative_cone_callback(self, msg):
         """Caches the pose of the intersection and calculates new drive command"""
-        self.relative_x = msg.x_pos
-        self.relative_y = msg.y_pos
-        drive_cmd = AckermannDriveStamped()
+        self.relative_x = msg.x
+        self.relative_y = msg.y
+
+
+    def error_publisher(self):
+        """
+        Publish the error between the car and the cone. We will view this
+        with rqt_plot to plot the success of the controller
+        """
+        error_msg = ParkingError()
 
         #################################
 
         # YOUR CODE HERE
-        # Use relative position and your control law to set drive_cmd
+        # Populate error_msg with relative_x, relative_y, sqrt(x^2+y^2)
+        error_msg.x_error = self.relative_x
+        error_msg.y_error = self.relative_y
+        error_msg.distance_error = np.sqrt(self.relative_x ** 2 + self.relative_y ** 2)
 
-        # self.get_logger().info(f'New Drive Command')
-
-        header = Header()
-        header.stamp = self.get_clock().now().to_msg()
-        header.frame_id = 'base_link'
-        drive_cmd.header = header
-
-        # choose target at the lookahead distance
-        target_point = self.get_point_on_line((self.relative_x, self.relative_y), self.LOOKAHEAD)
-        #VisualizationTools.draw_sphere(target_point[0], target_point[1], header.stamp, header.frame_id)
-
-        pure_persuit_drive_cmd = self.update_control(target_point) # get the drive command w speed and steer
-
-        drive_cmd.drive = pure_persuit_drive_cmd
         #################################
-
-        self.drive_cmd = drive_cmd
-
-  #  def error_publisher(self):
-  #      """
-  #      Publish the error between the car and the cone. We will view this
-  #      with rqt_plot to plot the success of the controller
-  #      """
-  #      error_msg = ParkingError()
-#
-#        ##################################
-#
-#        # YOUR CODE HERE
-#        # Populate error_msg with relative_x, relative_y, sqrt(x^2+y^2)
-#        error_msg.x_error = self.relative_x
-#        error_msg.y_error = self.relative_y
-#        error_msg.distance_error = np.sqrt(self.relative_x ** 2 + self.relative_y ** 2)#
-#
-#        #################################
-#        self.error_pub.publish(error_msg)
+        self.error_pub.publish(error_msg)
 
 
     def update_control(self, target_point):
@@ -166,34 +153,32 @@ class ParkingController(Node):
 
 
 
-    def get_point_on_line(self, p2, lookahead_dist, p1 =(0,0)):
+    def get_point_on_line(self, p2, lookahead_dist: float, p1 = (0,0)):
         """
         Finds a point on a line segment (p1->p2) at a specific lookahead distance from p1.
         """
         #  create vector
-        # p1_vec = np.array([p1[0], p1[1]])
-        # p2_vec = np.array([p2[0], p2[1]])
-        # line_vec = p2_vec - p1_vec
+        p1_vec = np.array([p1[0], p1[1]])
+        p2_vec = np.array([p2[0], p2[1]])
+        line_vec = p2_vec - p1_vec
 
-        # # normalize the direction vector
-        # length = np.linalg.norm(line_vec)
-        # if length == 0: return p1 # Avoid division by zero
-        # unit_vec = line_vec / length
+        # normalize the direction vector
+        length = np.linalg.norm(line_vec)
+        if length == 0: return p1 # Avoid division by zero
+        unit_vec = line_vec / length
 
-        # # find the point
-        # new_point_vec = p1_vec + (unit_vec * lookahead_dist)
-        # new_point_msg = Point(x=new_point_vec[0], y=new_point_vec[1])
+        # find the point
+        new_point_vec = p1_vec + (unit_vec * lookahead_dist)
+        new_point_msg = Point(x=new_point_vec[0], y=new_point_vec[1])
 
-        # # publish and return
-        # self.target_pub.publish(new_point_msg)
-        # pure pure pursuit
-        new_point_vec = np.array([p2[0], p2[1]])
+        # publish and return
+        self.target_pub.publish(new_point_msg)
         return new_point_vec
 
 def main(args=None):
     rclpy.init(args=args)
-    pc = ParkingController()
-    rclpy.spin(pc)
+    lf = LaneFollower()
+    rclpy.spin(lf)
     rclpy.shutdown()
 
 
