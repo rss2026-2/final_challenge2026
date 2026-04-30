@@ -47,8 +47,7 @@ class TrafficLight(Node):
         ### -- Publishers and Subscribers (End) -- ###
 
         self.CLOSE_DIST = 3.0 # change me
-        self.traffic_light_close = False
-
+        self.traffic_light_close = True
         
         self.bridge = CvBridge()
         self.get_logger().info("=== Traffic Light Node Initialized ===")
@@ -77,7 +76,7 @@ class TrafficLight(Node):
             self.get_logger().info(f"Color Found: {tf_color}")
         else:
             self.get_logger().info("No colors found")
-            
+
         if tf_color == "red":
             # If we see a red light, 
             # Publish true to /red_light (or just call publish_stop())

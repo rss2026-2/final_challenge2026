@@ -1,6 +1,6 @@
 traffic_light:
   ros__parameters:
-    tl_drive_topic: "/vesc/high_level/input/nav_0"
+    tl_drive_topic: "/drive"
     tl_point_topic: "/tl_relative_point"
     traffic_light_topic: "/published_image"
 
@@ -10,3 +10,9 @@ image_publisher:
     subscribe_topic: "/publish_img"
     publish_rate: 20
     image_path: "install/final_challenge2026/share/final_challenge2026/traffic_light_imgs/red_light_1.jpg"
+
+drive_publisher:
+  ros__parameters:
+    publish_topic: "/drive"
+    subscribe_topic: "/publish_drive"
+    speed: 1.0
