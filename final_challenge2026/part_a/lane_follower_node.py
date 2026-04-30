@@ -19,7 +19,7 @@ class LaneFollower(Node):
     def __init__(self):
         super().__init__("lane_follower")
         # drive topic to publish to
-        self.declare_parameter("drive_topic")
+        self.declare_parameter("drive_topic", "/vesc/high_level/input/nav_0")
         self.DRIVE_TOPIC = self.get_parameter("drive_topic").value  # set in launch file; different for simulator vs racecar
         self.drive_pub = self.create_publisher(AckermannDriveStamped, self.DRIVE_TOPIC, 10)
 
