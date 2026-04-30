@@ -34,7 +34,7 @@ class LineDetector(Node):
         self.direction = self.get_parameter('direction').value
         self.goal_y_offset = self.get_parameter('goal_y_offset').value
 
-        self.image_sub = self.create_subscription(Image, self.image_topic, self.hough_callback, 5)
+        self.image_sub = self.create_subscription(Image, self.image_topic, self.hough_fallback, 5)
         self.debug_pub = self.create_publisher(Image, self.debug_topic, 10)
         self.goal_pub = self.create_publisher(Point, self.goal_topic, 10)
         self.bridge = CvBridge()
@@ -42,7 +42,6 @@ class LineDetector(Node):
         # cache lanes in case of frames dropping
         self.last_left_line = None
         self.last_right_line = None
-        self.last_lane_width = None
         self.goal_y_ref = None
         self.goal_y_tolerance = 25.0
 
@@ -53,7 +52,7 @@ class LineDetector(Node):
 
 ### ----------------- LINE DETECTOR  ----------------- ####
 
-    def hough_callback(self, msg):
+    def hough_fallback(self, msg):
         """
         Inputs image from ZED camera, highlights the track lines in the image.
         1) segments by HSV values for white
@@ -130,7 +129,9 @@ class LineDetector(Node):
 
         msg, dbg = self.goal_from_pair(curr_pair, image, ls, rs, h, w)
 
-        if msg is None:
+        if msg is not None:
+            self.last_left_line, self.last_right_line = curr_pair
+        else:
             self.get_logger().info("WARNING: Using fallback lanes.")
             fb_pair = (getattr(self, 'last_left_line', None), getattr(self, 'last_right_line', None))
             msg, dbg = self.goal_from_pair(fb_pair, image, ls, rs, h, w)
@@ -140,28 +141,6 @@ class LineDetector(Node):
         self.goal_pub.publish(msg)
         self.publish_debug_image(dbg)
         return msg
-
-    def infer_lines(self, l, side):
-        """
-        Infer the missing lane by shifting the detected line sideways.
-
-        Uses the most recently observed lane width as the offset.
-        """
-        return None, None
-        # if l is None:
-        #     return None, None
-
-        # lane_width = getattr(self, "last_lane_width", None)
-        # if lane_width is None or not np.isfinite(lane_width) or lane_width <= 0:
-        #     return None, None
-
-        # shift = lane_width if side == "right" else -lane_width
-        # inferred = tuple(int(round(v)) for v in (l[0] + shift, l[1], l[2] + shift, l[3]))
-        # if side == "left":
-        #     return inferred, l
-        # if side == "right":
-        #     return l, inferred
-        # return None, None
 
     def goal_from_pair(self, pair, image, ls, rs, h, w):
         """
@@ -178,17 +157,7 @@ class LineDetector(Node):
         :returns Tuple(ROS2 Point message, Image matrix with the goal and line segments outlined)
         """
         if None in pair:
-            return None
-        # if pair == (None, None):
-        #     return None, None
-        # if pair[0] is None:
-        #     pair = self.infer_lines(pair[1], "left")
-        #     if pair == (None, None):
-        #         return None, None
-        # elif pair[1] is None:
-        #     pair = self.infer_lines(pair[0], "right")
-        #     if pair == (None, None):
-        #         return None, None
+            return None, None
 
         models = []
         for s in pair:
@@ -212,11 +181,6 @@ class LineDetector(Node):
         if getattr(self, 'goal_y_ref', None) is not None and abs(gy - self.goal_y_ref) > getattr(self, 'goal_y_tolerance', float('inf')):
             return None, None
         self.goal_y_ref = gy
-        self.last_left_line, self.last_right_line = pair
-        if abs(models[0][0][1]) > 1e-6 and abs(models[1][0][1]) > 1e-6:
-            left_x_bot = models[0][1][0] + (h - 1 - models[0][1][1]) * models[0][0][0] / models[0][0][1]
-            right_x_bot = models[1][1][0] + (h - 1 - models[1][1][1]) * models[1][0][0] / models[1][0][1]
-            self.last_lane_width = abs(float(right_x_bot - left_x_bot))
 
         dbg = image.copy()
         for s in ls: cv2.line(dbg, s[:2], s[2:], (255, 0, 0), 1)
