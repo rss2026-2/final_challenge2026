@@ -177,17 +177,18 @@ class LineDetector(Node):
 
         :returns Tuple(ROS2 Point message, Image matrix with the goal and line segments outlined)
         """
-
-        if pair == (None, None):
-            return None, None
-        if pair[0] is None:
-            pair = self.infer_lines(pair[1], "left")
-            if pair == (None, None):
-                return None, None
-        elif pair[1] is None:
-            pair = self.infer_lines(pair[0], "right")
-            if pair == (None, None):
-                return None, None
+        if None in pair:
+            return None
+        # if pair == (None, None):
+        #     return None, None
+        # if pair[0] is None:
+        #     pair = self.infer_lines(pair[1], "left")
+        #     if pair == (None, None):
+        #         return None, None
+        # elif pair[1] is None:
+        #     pair = self.infer_lines(pair[0], "right")
+        #     if pair == (None, None):
+        #         return None, None
 
         models = []
         for s in pair:
