@@ -1,9 +1,20 @@
 traffic_light:
   ros__parameters:
     tl_drive_topic: "/vesc/high_level/input/nav_0"
-    red_light_topic: "/red_light"
+    tl_point_topic: "/tl_relative_point"
+    traffic_light_topic: "/traffic_light"
+    image_topic: "/zed/zed_node/rgb/image_rect_color"
 
 parking_meter:
   ros__parameters:
     pm_drive_topic: "/vesc/high_level/input/nav_1"
+    parking_meter_loc_topic: "/pm_relative_point"
+    parking_meter_img_topic: "/yolo/annotated_image"
+    location_topic: "/pf/pose/odom"
 
+yolo_detection:
+  ros__parameters:
+    traffic_light_topic: "/traffic_light"
+    tl_point_px_topic: "/tl_point_px"
+    pm_point_px_topic: "/pm_point_px"
+    person_point_px_topic: "/person_point_px"

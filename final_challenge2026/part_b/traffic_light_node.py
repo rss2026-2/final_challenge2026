@@ -83,13 +83,14 @@ class TrafficLight(Node):
             if self.traffic_light_close:
                 self.publish_stop()
 
-        elif tf_color == "yellow":
-            # TODO: Maybe handle slowing down for a yellow light?
-            # for now, just don't stop
-            bool_msg = Bool()
-            bool_msg.data = False
-            # self.red_light_pub.publish(bool_msg)
-            pass
+        # Probably no yellow light
+        # elif tf_color == "yellow":
+        #     # TODO: Maybe handle slowing down for a yellow light?
+        #     # for now, just don't stop
+        #     bool_msg = Bool()
+        #     bool_msg.data = False
+        #     # self.red_light_pub.publish(bool_msg)
+        #     pass
 
         elif tf_color == "green":
             # If we see a green light, 
@@ -133,18 +134,18 @@ class TrafficLight(Node):
 
         green_hsv_range = [[140, 40, 75],[180, 100, 100]]
 
-        yellow_hsv_range = [[48, 40, 70],[60, 90, 100]]
+        # yellow_hsv_range = [[48, 40, 70],[60, 90, 100]]
 
         color_dict = {
             "red": [red_hsv_range_1, red_hsv_range_2],
             "green": [green_hsv_range],
-            "yellow": [yellow_hsv_range]
+            # "yellow": [yellow_hsv_range]
         }
 
         colors_to_draw = {
             "red": (0,0,255),
             "green": (0,255,0),
-            "yellow": (0,255,255)
+            # "yellow": (0,255,255)
         }
         img_copy = image.copy()
         ret_color = find_most_prominent_color(image, color_dict, img_copy, colors_to_draw)

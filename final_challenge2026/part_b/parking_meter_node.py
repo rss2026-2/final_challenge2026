@@ -24,13 +24,13 @@ class ParkingMeter(Node):
 
         # -- Declared parameters --
         self.declare_parameter('pm_drive_topic', '/vesc/high_level/input/nav_1')
-        self.declare_parameter('parking_meter_loc_topic', '/parking_meter_loc')
-        self.declare_parameter('parking_meter_img_topic', '/parking_meter_img')
+        self.declare_parameter('pm_point_topic', '/pm_relative_point')
+        self.declare_parameter('annotated_img_topic', '/yolo/annotated_image')
         self.declare_parameter('location_topic', '/pf/pose/odom')
 
         self.pm_drive_topic = self.get_parameter('pm_drive_topic').value
-        self.parking_meter_loc_topic = self.get_parameter('parking_meter_loc_topic').value
-        self.parking_meter_img_topic = self.get_parameter('parking_meter_img_topic').value
+        self.parking_meter_loc_topic = self.get_parameter('pm_point_topic').value
+        self.parking_meter_img_topic = self.get_parameter('annotated_img_topic').value
         self.location_topic = self.get_parameter('location_topic').value
 
 
