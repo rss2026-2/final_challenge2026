@@ -57,6 +57,7 @@ class SimpleDrivePublisher(Node):
             drive_cmd.drive.speed = 0.0
         else:
             self.get_logger().warn(f"### Drive command not recognized ###")
+            return
         
         self.drive_pub.publish(drive_cmd)
 
