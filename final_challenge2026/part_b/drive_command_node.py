@@ -38,13 +38,31 @@ class SimpleDrivePublisher(Node):
         self.get_logger().info("=== Simple Drive Publisher Node Initialized ===")
 
     def publish_drive_cb(self, str_msg):
+        """
+        Receives drive commands in the form of string messages
+        and publishes them to the car.
+
+        How to send a single (message): #/publish_drive is the default for subscribe_topic, replace if changed
+            ros2 topic pub -1 /publish_drive std_msgs/msg/String "{data: (message)}"
+        
+        Accepted Messages:
+            'forward'
+            'reverse'
+            'stop'
+
+        Example:
+            ros2 topic pub -1 /publish_drive std_msgs/msg/String "{data: 'forward'}"
+
+        Args:
+            str_msg (ROS2 String): contains the command in its data
+
+        """
         drive_cmd = AckermannDriveStamped()
-        # self.get_logger().info(f'New Drive Command')
 
         header = Header()
         stamp = self.get_clock().now().to_msg()
         header.stamp = stamp
-        header.frame_id = 'base_link' # is this still true?
+        header.frame_id = 'base_link'
         drive_cmd.header = header
 
         command = str_msg.data
