@@ -6,7 +6,7 @@
   <node pkg="final_challenge2026" name="lane_follower_node" exec="lane_follower" output="screen">
   </node>
 
-  <node pkg="final_challenge2026" name="homography_transformer_OLD.py" exec="homography_transformer_OLD.py" output="screen">
+  <node pkg="final_challenge2026" name="homography_transformer_OLD" exec="homography_transformer_OLD" output="screen">
     <!-- <param from="$(find-pkg-share final_challenge2026)/config/homography_config.yaml"/> -->
   </node>
 
