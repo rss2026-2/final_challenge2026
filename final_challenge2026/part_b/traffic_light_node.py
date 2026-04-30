@@ -26,12 +26,15 @@ class TrafficLight(Node):
         self.declare_parameter('tl_point_topic', '/tl_relative_point')
         # self.declare_parameter('traffic_light_topic', '/traffic_light')
         self.declare_parameter('traffic_light_topic', '/zed/zed_node/rgb/image_rect_color')
-        # self.declare_parameter('red_light_topic', '/red_light')
 
         self.tl_drive_topic = self.get_parameter('tl_drive_topic').get_parameter_value().string_value
         self.tl_point_topic = self.get_parameter('tl_point_topic').get_parameter_value().string_value
         self.traffic_light_topic = self.get_parameter('traffic_light_topic').get_parameter_value().string_value
-        # self.red_light_topic = self.get_parameter('red_light_topic').get_parameter_value().string_value
+        
+        # -- Static params
+        self.declare_parameter('distance_threshold', 3.0)
+
+        self.distance_threshold = self.get_parameter('distance_threshold').get_parameter_value().double_value
         ### -- Declared parameters (End) -- ###
 
         ### -- Publishers and Subscribers (Start) -- ###
@@ -46,7 +49,6 @@ class TrafficLight(Node):
         # self.red_light_sub = self.create_subscription(Bool, self.red_light_topic, self.red_light_callback, 1)
         ### -- Publishers and Subscribers (End) -- ###
 
-        self.CLOSE_DIST = 3.0 # change me
         self.traffic_light_close = True
         
         self.bridge = CvBridge()
@@ -57,7 +59,7 @@ class TrafficLight(Node):
         Point callback that checks to see if the traffic light is close enough to consider
         performing color segmentation on
         """
-        if msg.x < self.CLOSE_DIST:
+        if msg.x < self.distance_threshold:
             self.traffic_light_close = True
         else:
             self.traffic_light_close = False
