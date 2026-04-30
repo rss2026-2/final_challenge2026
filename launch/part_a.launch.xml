@@ -7,7 +7,7 @@
   </node>
 
   <node pkg="visual_servoing" name="homography_transformer" exec="homography_transformer" output="screen">
-    <param from="$(find-pkg-share final_challenge2026)/config/homography_config.yaml"/>
+    <!-- <param from="$(find-pkg-share final_challenge2026)/config/homography_config.yaml"/> -->
   </node>
 
 </launch>

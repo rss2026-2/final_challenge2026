@@ -24,7 +24,7 @@ class LaneFollower(Node):
         self.drive_pub = self.create_publisher(AckermannDriveStamped, self.DRIVE_TOPIC, 10)
 
         # get the point from the lane_detector_node
-        self.declare_parameter('goal_topic', '/goal_point')
+        self.declare_parameter('goal_topic', '/real_point')
         self.goal_topic = self.get_parameter('goal_topic').value
         self.create_subscription(Point, self.goal_topic, self.relative_cone_callback, 1)
 
