@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
 
+"""
+ 1) filters our image pixels by roi - the remaining pixels should be pixels in a middle
+trapezoid that is tilted left (because the car turns left).
+ 2) filters out image pixels by hsv to look for white lines
+ 3) fits hough transform lines to all the remaining pixels
+ 4) filters out hough lines that have too horizontal of a slope (lines that cross the
+ track but dont define it)
+ 5) defines a horizon line along a row of the image where the goal point will lie. this horizon line
+ intersects the remaining hough lines
+ 6) takes the inner-most left and right hough lines (lines are classified as left and right depending
+ on where each line crosses the bottom of the image plane)
+ 7) calculates a goal point that is in the middle of the two hough lines
+ 8) outputs a debug image showing the goal point, the trapezoid roi, the horizon line, and the two
+ hough lines chosen to define the goal point.
+"""
+
 import rclpy
 from rclpy.node import Node
 import numpy as np
