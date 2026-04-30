@@ -47,7 +47,7 @@ class HomographyTransformer(Node):
         super().__init__("homography_transformer")
 
         self.cone_pub = self.create_publisher(ConeLocation, "/relative_cone", 10)
-        self.goal_pub = self.create_publisher(Point, "/real_point", 10)
+        self.goal_pub = self.create_publisher(ConeLocationPixel, "/real_point", 10)
         self.marker_pub = self.create_publisher(Marker, "/cone_marker", 1)
         self.cone_px_sub = self.create_subscription(ConeLocationPixel, "/relative_cone_px", self.cone_detection_callback, 1)
         # added
@@ -94,13 +94,11 @@ class HomographyTransformer(Node):
 
         x, y = self.transformUvToXy(u, v)
 
-        self.get_logger().info(f'{u=}, {v=}')
-        self.get_logger().info(f'{x=}, {y=}')
-
-        # Publish relative xy position of object in real world
-        relative_xy_msg = Point()
-        relative_xy_msg.x = float(x)
-        relative_xy_msg.y = float(y)
+        # Publish transformed lane point for the follower. The message type is
+        # ConeLocationPixel, so we carry the ground-plane x/y in u/v.
+        relative_xy_msg = ConeLocationPixel()
+        relative_xy_msg.u = float(x)
+        relative_xy_msg.v = float(y)
 
         self.draw_marker(x, y, "/base_link")
         self.goal_pub.publish(relative_xy_msg)
