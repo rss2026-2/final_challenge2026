@@ -17,9 +17,11 @@
   <depend>visualization_msgs</depend>
   <depend>vs_msgs</depend>
   <depend>visual_servoing</depend>
+  <depend>torch</depend>
 
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-torch</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

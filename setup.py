@@ -17,6 +17,7 @@ setup(
         (os.path.join('share', package_name, 'racetrack_images'), glob('racetrack_images/*/*.png')),
         (os.path.join('share', package_name, 'config'), glob('config/**/*.yaml', recursive = True)),
         (os.path.join('share', package_name, 'traffic_light_imgs'), glob('final_challenge2026/part_b/computer_vision/traffic_light_imgs/*.jpg')),
+        (os.path.join('lib/', package_name, "computer_vision"), glob('final_challenge2026/part_b/computer_vision/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
