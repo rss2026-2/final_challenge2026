@@ -8,6 +8,7 @@ from vs_msgs.msg import ParkingError
 from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
 from std_msgs.msg import Header
 from geometry_msgs.msg import Point
+from vs_msgs.msg import ConeLocation
 
 class LaneFollower(Node):
     """
@@ -26,7 +27,7 @@ class LaneFollower(Node):
         # get the point from the lane_detector_node
         self.declare_parameter('goal_topic', '/real_point')
         self.goal_topic = self.get_parameter('goal_topic').value
-        self.create_subscription(Point, self.goal_topic, self.relative_cone_callback, 1)
+        self.create_subscription(ConeLocation, self.goal_topic, self.relative_cone_callback, 1)
 
         # visualize the target point
         self.declare_parameter("target_point_topic", '/target_point')

@@ -147,20 +147,21 @@ class LineDetector(Node):
 
         Uses the most recently observed lane width as the offset.
         """
-        if l is None:
-            return None, None
-
-        lane_width = getattr(self, "last_lane_width", None)
-        if lane_width is None or not np.isfinite(lane_width) or lane_width <= 0:
-            return None, None
-
-        shift = lane_width if side == "right" else -lane_width
-        inferred = tuple(int(round(v)) for v in (l[0] + shift, l[1], l[2] + shift, l[3]))
-        if side == "left":
-            return inferred, l
-        if side == "right":
-            return l, inferred
         return None, None
+        # if l is None:
+        #     return None, None
+
+        # lane_width = getattr(self, "last_lane_width", None)
+        # if lane_width is None or not np.isfinite(lane_width) or lane_width <= 0:
+        #     return None, None
+
+        # shift = lane_width if side == "right" else -lane_width
+        # inferred = tuple(int(round(v)) for v in (l[0] + shift, l[1], l[2] + shift, l[3]))
+        # if side == "left":
+        #     return inferred, l
+        # if side == "right":
+        #     return l, inferred
+        # return None, None
 
     def goal_from_pair(self, pair, image, ls, rs, h, w):
         """
