@@ -143,9 +143,9 @@ class LineDetector(Node):
 
     def infer_lines(self, l, side):
         """
-        Infer the missing lane line by translating the detected line sideways.
+        Infer the missing lane by shifting the detected line sideways.
 
-        The translation distance is learned from the most recent valid lane pair.
+        Uses the most recently observed lane width as the offset.
         """
         if l is None:
             return None, None
