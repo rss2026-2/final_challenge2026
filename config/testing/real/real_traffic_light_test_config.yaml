@@ -1,0 +1,20 @@
+yolo_detection:
+  ros__parameters:
+    camera_topic: "/zed/zed_node/rgb/image_rect_color" # Subscribes to the car zed camera
+    traffic_light_topic: "/traffic_light" # Publishes the detected traffic light image to this topic
+    publish_rate: 20
+
+traffic_light:
+  ros__parameters:
+    tl_drive_topic: "/vesc/high_level/input/nav_0" # Publishes drive commands to car
+    tl_point_topic: "/tl_relative_point"
+    traffic_light_topic: "/traffic_light" # Subscribes to the detected traffic light image topic
+    distance_threshold: 3.0
+    logger_rate: 2.0 # seconds
+
+drive_publisher:
+  ros__parameters:
+    publish_topic: "/vesc/high_level/input/nav_1"
+    subscribe_topic: "/publish_drive"
+    initial_speed: 0.5
+    max_speed: 3.0

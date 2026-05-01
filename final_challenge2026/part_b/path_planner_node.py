@@ -15,11 +15,6 @@ import heapq
 from scipy.spatial.transform import Rotation as R
 import cv2
 
-import time
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
 class PathPlan(Node):
     """ Listens for goal pose published by RViz and uses it to plan a path from
     current car pose.
@@ -31,6 +26,7 @@ class PathPlan(Node):
         self.declare_parameter('map_topic', "/map")
         self.declare_parameter('safety_cell_radius', 5)
         self.declare_parameter('max_step_size', 5)
+        self.declare_parameter('a_star_weights', [1.0,1.0,-1.0,-5.0])
         
 
         #seperate trajectory publishers for path comparison
@@ -44,6 +40,7 @@ class PathPlan(Node):
         self.map_topic = self.get_parameter('map_topic').get_parameter_value().string_value
         self.safety_cell_radius = self.get_parameter('safety_cell_radius').get_parameter_value().integer_value
         self.max_step_size = self.get_parameter('max_step_size').get_parameter_value().integer_value
+        self.a_star_weights = np.array(self.get_parameter('a_star_weights').get_parameter_value().double_array_value)
 
         self.viz_namespace = self.get_parameter("viz_namespace").get_parameter_value().string_value
         self.viz_traj_color = self.get_parameter("viz_traj_color").get_parameter_value().double_array_value
@@ -282,16 +279,7 @@ class PathPlan(Node):
 
             for neighbor in self.find_valid_neighbors(curr_cell, step_size):
                 new_path = curr_path + (neighbor,)
-
-                new_path_cost = curr_path_cost + math.dist(curr_cell, neighbor)
-
-                curr_clearance = self.dist_map[neighbor[1],neighbor[0]]
-
-                new_avg_clearance = avg_clearance + (self.dist_map[neighbor[1],neighbor[0]] - avg_clearance) / len(new_path)
-                new_min_clearance = min(min_clearance, curr_clearance)
-                new_total_cost = new_path_cost + math.dist(neighbor ,end_cell) - new_avg_clearance - new_min_clearance
-
-                heapq.heappush(queue, (new_total_cost, new_path_cost, new_avg_clearance, new_min_clearance, new_path))
+                heapq.heappush(queue, self.calculate_new_cost(new_path, end_cell, curr_path_cost, avg_clearance, min_clearance))
         
         if found_path is None:
             return False
@@ -302,6 +290,32 @@ class PathPlan(Node):
         self.trajectory.clear()
         self.trajectory.addPoints(real_path)
         return True
+    
+    def calculate_new_cost(self, new_path, end_cell, curr_path_cost, curr_avg_clearance, curr_min_clearance):
+        """
+        Updates the A* cost of a new path
+        """
+        curr_cell = new_path[-2]
+        next_cell = new_path[-1]
+        curr_clearance = self.dist_map[next_cell[1],next_cell[0]]
+        
+        # Path cost is the sum of the pairwise distances between cells in the path
+        new_path_cost = curr_path_cost + math.dist(curr_cell, next_cell)
+
+        # Heurestic estimate of future cost to goal (L2 Distance)
+        goal_cost = math.dist(next_cell ,end_cell)
+
+        # The average clearance from obstacles of all the cells in the path from obstacles
+        new_avg_clearance = curr_avg_clearance + (curr_clearance - curr_avg_clearance) / len(new_path)
+
+        # The minimum clearance from obstacles of  all cells in the path
+        new_min_clearance = min(curr_min_clearance, curr_clearance)
+
+        costs_arr = np.array([new_path_cost, goal_cost, new_avg_clearance, new_min_clearance])
+
+        total_cost = np.dot(costs_arr, self.a_star_weights)
+
+        return (total_cost, new_path_cost, new_avg_clearance, new_min_clearance, new_path)
     
     def publish_edges(self, edges):
         """
@@ -409,3 +423,6 @@ def main(args=None):
     planner = PathPlan()
     rclpy.spin(planner)
     rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()

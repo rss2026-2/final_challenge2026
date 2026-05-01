@@ -1,0 +1,14 @@
+<launch>
+    <node pkg="final_challenge2026" name="yolo_detection" exec="yolo_detection" output="screen">
+        <param from="$(find-pkg-share final_challenge2026)/config/real_traffic_light_test_config.yaml"/>
+    </node>
+    
+    <node pkg="final_challenge2026" name="traffic_light" exec="traffic_light" output="screen">
+        <param from="$(find-pkg-share final_challenge2026)/config/real_traffic_light_test_config.yaml"/>
+    </node>
+
+    <node pkg="final_challenge2026" name="drive_publisher" exec="drive_publisher" output="screen">
+        <param from="$(find-pkg-share final_challenge2026)/config/real_traffic_light_test_config.yaml"/>
+    </node>
+
+</launch>

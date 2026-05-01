@@ -15,16 +15,20 @@ class SimpleDrivePublisher(Node):
 
         ### -- Declared parameters (Start) -- ###
         # -- ROS2 Topics
-        self.declare_parameter("publish_topic", "/drive")
+        self.declare_parameter("publish_topic", "/vesc/high_level/input/nav_1")
         self.declare_parameter("subscribe_topic", "/publish_drive")
 
         self.publish_topic = self.get_parameter("publish_topic").get_parameter_value().string_value
         self.subscribe_topic = self.get_parameter("subscribe_topic").get_parameter_value().string_value
 
-        # -- Dynamic Params
-        self.declare_parameter("speed", 1.0)
+        # -- Static Params
+        self.declare_parameter("max_speed", 3.0)
 
-        self.speed = self.get_parameter("speed").get_parameter_value().double_value
+        self.MAX_SPEED = self.get_parameter("max_speed").get_parameter_value().double_value
+        # -- Dynamic Params
+        self.declare_parameter("initial_speed", 1.0)
+
+        self.speed = self.get_parameter("initial_speed").get_parameter_value().double_value
         ### -- Declared parameters (End) -- ###
 
         ### -- Publishers and Subscribers (Start) -- ###
@@ -49,35 +53,48 @@ class SimpleDrivePublisher(Node):
             'forward'
             'reverse'
             'stop'
+            '(speed)' 
 
-        Example:
+        Examples:
             ros2 topic pub -1 /publish_drive std_msgs/msg/String "{data: 'forward'}"
+            ros2 topic pub -1 /publish_drive std_msgs/msg/String "{data: '0.5'}"
 
         Args:
             str_msg (ROS2 String): contains the command in its data
 
         """
-        drive_cmd = AckermannDriveStamped()
-
-        header = Header()
-        stamp = self.get_clock().now().to_msg()
-        header.stamp = stamp
-        header.frame_id = 'base_link'
-        drive_cmd.header = header
-
         command = str_msg.data
         self.get_logger().info(f"Received drive command: {command}")
-        if command == "forward":
-            drive_cmd.drive.speed = self.speed
-        elif command == "reverse":
-            drive_cmd.drive.speed = -self.speed
-        elif command == "stop":
-            drive_cmd.drive.speed = 0.0
-        else:
-            self.get_logger().warn(f"### Drive command not recognized ###")
+
+        try:
+            new_speed = float(command)
+            if 0.0 <= new_speed <= self.MAX_SPEED:
+                self.speed = new_speed
+            else:
+                self.get_logger().warn(f"Speed outside accepted range: [{0.0},{self.MAX_SPEED}]")
+            
             return
         
-        self.drive_pub.publish(drive_cmd)
+        except ValueError:
+            drive_cmd = AckermannDriveStamped()
+
+            header = Header()
+            stamp = self.get_clock().now().to_msg()
+            header.stamp = stamp
+            header.frame_id = 'base_link'
+            drive_cmd.header = header
+
+            if command == "forward":
+                drive_cmd.drive.speed = self.speed
+            elif command == "reverse":
+                drive_cmd.drive.speed = -self.speed
+            elif command == "stop":
+                drive_cmd.drive.speed = 0.0
+            else:
+                self.get_logger().warn(f"### Drive command not recognized ###")
+                return
+        
+            self.drive_pub.publish(drive_cmd)
 
     
 

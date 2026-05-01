@@ -36,6 +36,7 @@ setup(
             'parking_meter = final_challenge2026.part_b.parking_meter_node:main',
             'image_publisher = final_challenge2026.part_b.image_publisher_node:main',
             'drive_publisher = final_challenge2026.part_b.drive_command_node:main',
+            'path_planner = final_challenge2026.part_b.path_planner_node:main'
         ],
     },
 )

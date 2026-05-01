@@ -33,8 +33,10 @@ class TrafficLight(Node):
         
         # -- Static params
         self.declare_parameter('distance_threshold', 3.0)
+        self.declare_parameter('logger_rate', 2.0)
 
         self.distance_threshold = self.get_parameter('distance_threshold').get_parameter_value().double_value
+        self.logger_rate = self.get_parameter('logger_rate').get_parameter_value().double_value
         ### -- Declared parameters (End) -- ###
 
         ### -- Publishers and Subscribers (Start) -- ###
@@ -50,6 +52,8 @@ class TrafficLight(Node):
         ### -- Publishers and Subscribers (End) -- ###
 
         self.traffic_light_close = True
+        self.recorded_x_dists_from_light = []
+        self.record_start = 0.0
         
         self.bridge = CvBridge()
         self.get_logger().info("=== Traffic Light Node Initialized ===")
@@ -59,10 +63,19 @@ class TrafficLight(Node):
         Point callback that checks to see if the traffic light is close enough to consider
         performing color segmentation on
         """
-        if msg.x < self.distance_threshold:
-            self.traffic_light_close = True
-        else:
-            self.traffic_light_close = False
+        x_dist_from_light = msg.x
+        self.traffic_light_close =  x_dist_from_light < self.distance_threshold
+
+        self.recorded_x_dists_from_light.append(x_dist_from_light)
+        current_time = self.get_clock().now().nanoseconds
+        
+        if (current_time - self.record_start) / 1e9 > self.logger_rate:
+            avg_x_dist = np.mean(np.array(self.recorded_x_dists_from_light))
+            self.get_logger().info(f"Distance from traffic light: {avg_x_dist}")
+            
+            self.recorded_x_dists_from_light = []
+            self.record_start = current_time
+
 
     def traffic_light_callback(self, image_msg):
         """

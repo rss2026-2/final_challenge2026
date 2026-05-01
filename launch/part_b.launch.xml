@@ -13,4 +13,8 @@
     <node pkg="final_challenge2026" name="parking_meter_node" exec="parking_meter" output="screen">
     </node>
 
+    <node pkg="final_challenge2026" name="path_planner_node" exec="path_planner" output="screen">
+        <param from="$(find-pkg-share final_challenge2026)/config/partb.yaml"/>
+    </node>
+
 </launch>

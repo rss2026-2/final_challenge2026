@@ -21,4 +21,5 @@ drive_publisher:
   ros__parameters:
     publish_topic: "/drive"
     subscribe_topic: "/publish_drive"
-    speed: 1.0
+    initial_speed: 1.0
+    max_speed: 3.0

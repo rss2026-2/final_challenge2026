@@ -1,20 +1,28 @@
-traffic_light:
+traffic_light_node:
   ros__parameters:
-    tl_drive_topic: "/vesc/high_level/input/nav_0"
+    tl_drive_topic: "/vesc/high_level/input/nav_0" # Publishes drive commands to car
     tl_point_topic: "/tl_relative_point"
-    traffic_light_topic: "/traffic_light"
-    image_topic: "/zed/zed_node/rgb/image_rect_color"
+    traffic_light_topic: "/traffic_light" # Subscribes to the detected traffic light image topic
+    distance_threshold: 3.0
 
-parking_meter:
+parking_meter_node:
   ros__parameters:
     pm_drive_topic: "/vesc/high_level/input/nav_1"
     parking_meter_loc_topic: "/pm_relative_point"
     parking_meter_img_topic: "/yolo/annotated_image"
     location_topic: "/pf/pose/odom"
 
-yolo_detection:
+yolo_detection_node:
   ros__parameters:
     traffic_light_topic: "/traffic_light"
     tl_point_px_topic: "/tl_point_px"
     pm_point_px_topic: "/pm_point_px"
     person_point_px_topic: "/person_point_px"
+    camera_topic: "/zed/zed_node/rgb/image_rect_color"
+
+path_planner_node:
+  ros__parameters:
+    odom_topic: "/pf/pose/odom"
+    max_step_size: 5
+    safety_cell_radius: 5
+    a_star_weights: [1.0,1.0,-1.0,-5.0] # path_cost, goal_cost, avg_clearance, min_clearance
