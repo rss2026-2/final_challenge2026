@@ -29,9 +29,9 @@ class LaneFollower(Node):
         self.create_subscription(ConeLocation, self.goal_topic, self.relative_cone_callback, 1)
 
         # visualize the target point
-        self.declare_parameter("target_point_topic", '/target_point')
-        self.TARGET_POINT_TOPIC = self.get_parameter('target_point_topic').value
-        self.target_pub = self.create_publisher(ConeLocation, self.TARGET_POINT_TOPIC, 10)
+        # self.declare_parameter("target_point_topic", '/target_point')
+        # self.TARGET_POINT_TOPIC = self.get_parameter('target_point_topic').value
+        # self.target_pub = self.create_publisher(ConeLocation, self.TARGET_POINT_TOPIC, 10)
 
         # probably won't need these because we aren't stopping.
         self.parking_distance_min = 0.45 # meters; try playing with this number! it should be 1.5 - 2 feet away (0.45 - 0.6 m)
@@ -61,8 +61,8 @@ class LaneFollower(Node):
         header.stamp = self.get_clock().now().to_msg()
         header.frame_id = 'base_link'
         drive_cmd.header = header
-
-        target_point = self.get_point_on_line((self.relative_x, self.relative_y), self.LOOKAHEAD)
+        target_point = (self.relative_x, self.relative_y)
+        # target_point = self.get_point_on_line((self.relative_x, self.relative_y), self.LOOKAHEAD)
         pure_persuit_drive_cmd = self.update_control(target_point)
         drive_cmd.drive = pure_persuit_drive_cmd
 
@@ -100,9 +100,10 @@ class LaneFollower(Node):
         new_steering_angle = self.compute_feedback_angle(target_point)
 
         # it is in front of us reasonable angle, give it that angle
-        drive.steering_angle = float(np.clip(new_steering_angle,
-                                -self.MAX_STEERING_ANGLE,
-                                self.MAX_STEERING_ANGLE))
+        drive.steering_angle = new_steering_angle
+        # drive.steering_angle = float(np.clip(new_steering_angle,
+        #                         -self.MAX_STEERING_ANGLE,
+        #                         self.MAX_STEERING_ANGLE))
 
         drive.speed = self.VELOCITY
         return drive
