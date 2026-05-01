@@ -137,10 +137,10 @@ class LaneFollower(Node):
 
         # find the point
         new_point_vec = p1_vec + (unit_vec * lookahead_dist)
-        new_point_msg = Point(x=new_point_vec[0], y=new_point_vec[1])
+        # new_point_msg = Point(x=new_point_vec[0], y=new_point_vec[1])
 
         # publish and return
-        self.target_pub.publish(new_point_msg)
+        # self.target_pub.publish(new_point_msg)
         return new_point_vec
 
 def main(args=None):
