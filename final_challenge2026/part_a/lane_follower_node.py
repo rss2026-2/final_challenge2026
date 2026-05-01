@@ -49,36 +49,24 @@ class LaneFollower(Node):
         self.VELOCITY = self.get_parameter('velocity').get_parameter_value().double_value
         self.LOOKAHEAD = self.get_parameter('lookahead').get_parameter_value().double_value
 
-        timer_rate = 20 # rate at which we publish the drive command
-        self.create_timer(1/timer_rate, self.timer_drive_pub_callback)
-
         self.get_logger().info("Parking Controller Initialized")
 
-    def timer_drive_pub_callback(self):
-        """Calculates and publishes the drive command at a specific frequency. """
-        if self.relative_x is not None and self.relative_y is not None:
-            # only calculate with the relevant pose
-            drive_cmd = AckermannDriveStamped()
-            # self.get_logger().info(f'New Drive Command')
-
-            header = Header()
-            header.stamp = self.get_clock().now().to_msg()
-            header.frame_id = 'base_link'
-            drive_cmd.header = header
-
-            # choose target at the lookahead distance
-            target_point = self.get_point_on_line((self.relative_x, self.relative_y), self.LOOKAHEAD)
-
-            pure_persuit_drive_cmd = self.update_control(target_point) # get the drive command w speed and steer
-
-            drive_cmd.drive = pure_persuit_drive_cmd
-
-            self.drive_pub.publish(drive_cmd)
-
     def relative_cone_callback(self, msg):
-        """Caches the pose of the intersection and calculates new drive command"""
+        """Caches the pose of the intersection and publishes a new drive command."""
         self.relative_x = msg.x_pos
         self.relative_y = msg.y_pos
+
+        drive_cmd = AckermannDriveStamped()
+        header = Header()
+        header.stamp = self.get_clock().now().to_msg()
+        header.frame_id = 'base_link'
+        drive_cmd.header = header
+
+        target_point = self.get_point_on_line((self.relative_x, self.relative_y), self.LOOKAHEAD)
+        pure_persuit_drive_cmd = self.update_control(target_point)
+        drive_cmd.drive = pure_persuit_drive_cmd
+
+        self.drive_pub.publish(drive_cmd)
 
 
     def update_control(self, target_point):
