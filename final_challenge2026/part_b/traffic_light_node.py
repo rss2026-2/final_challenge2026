@@ -68,17 +68,10 @@ class TrafficLight(Node):
         """
         Image callback that scans for a red light on a traffic light
         """
-        self.get_logger().info("Image received!")
         image = self.bridge.imgmsg_to_cv2(image_msg, "bgr8")
 
         # Perform color segmentation on the spot where the red light would be
         tf_color = self.tf_color_detection(image)
-
-        if tf_color is not None:
-            self.get_logger().info(f"Color Found: {tf_color}")
-        else:
-            self.get_logger().info("No colors found")
-
         if tf_color == "red":
             # If we see a red light, 
             # Publish true to /red_light (or just call publish_stop())
