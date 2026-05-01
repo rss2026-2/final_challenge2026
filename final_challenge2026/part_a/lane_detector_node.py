@@ -61,7 +61,7 @@ class LineDetector(Node):
         self.last_right_line = None
         self.lane_width_sum_px = 0.0
         self.lane_width_count = 0
-        self.avg_lane_width_px = 146.7
+        self.avg_lane_width_px = 220.0
 
         # use this line to debug with static images:
         # self.load_and_publish_image('src/final_challenge2026/racetrack_images/lane_3/image45.png')
