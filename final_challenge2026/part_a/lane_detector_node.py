@@ -232,7 +232,6 @@ class LineDetector(Node):
         self.lane_width_sum_px += lane_width_px
         self.lane_width_count += 1
         avg_lane_width_px = self.lane_width_sum_px / self.lane_width_count
-        print(f"average lane width over node lifetime: {avg_lane_width_px:.1f} px")
 
         goal_x = float(np.clip(0.5 * (left_x_h + right_x_h), 0, w - 1))
         goal_y = float(horizon_y)
