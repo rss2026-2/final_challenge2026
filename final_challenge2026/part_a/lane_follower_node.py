@@ -55,7 +55,7 @@ class LaneFollower(Node):
         """Caches the pose of the intersection and publishes a new drive command."""
         self.relative_x = msg.x_pos
         self.relative_y = msg.y_pos
-
+        self.get_logger().info(f"x={self.relative_x}, y={self.relative_y}")
         drive_cmd = AckermannDriveStamped()
         header = Header()
         header.stamp = self.get_clock().now().to_msg()
