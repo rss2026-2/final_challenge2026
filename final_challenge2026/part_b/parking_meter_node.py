@@ -234,3 +234,12 @@ class ParkingMeter(Node):
         msg.data = text
         self.status_updates_pub.publish(msg)
         self.get_logger().info(f'Publishing: "{text}"') # can toggle logging verbosity with this
+
+def main(args=None):
+    rclpy.init(args=args)
+    planner = ParkingMeter()
+    rclpy.spin(planner)
+    rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()
