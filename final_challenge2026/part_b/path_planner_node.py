@@ -24,6 +24,7 @@ class PathPlan(Node):
         super().__init__("grid_search_planner")
         self.declare_parameter('odom_topic', "/odom")
         self.declare_parameter('map_topic', "/map")
+        self.declare_parameter('points_topic', "/goal_pose")
         self.declare_parameter('safety_cell_radius', 5)
         self.declare_parameter('max_step_size', 5)
         self.declare_parameter('a_star_weights', [1.0,1.0,-1.0,-5.0])
@@ -38,6 +39,7 @@ class PathPlan(Node):
 
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
         self.map_topic = self.get_parameter('map_topic').get_parameter_value().string_value
+        self.points_topic = self.get_paramter('points_topic').get_paramter_value().string_value
         self.safety_cell_radius = self.get_parameter('safety_cell_radius').get_parameter_value().integer_value
         self.max_step_size = self.get_parameter('max_step_size').get_parameter_value().integer_value
         self.a_star_weights = np.array(self.get_parameter('a_star_weights').get_parameter_value().double_array_value)
@@ -49,7 +51,7 @@ class PathPlan(Node):
     
 
         self.map_sub = self.create_subscription(OccupancyGrid, self.map_topic, self.map_cb, 1)
-        self.goal_sub = self.create_subscription(PoseStamped, "/goal_pose", self.goal_cb, 10)
+        self.goal_sub = self.create_subscription(PoseStamped, self.points_topic, self.goal_cb, 10)
         self.pose_sub = self.create_subscription(Odometry, self.odom_topic, self.pose_cb, 10)
 
         if self.publish_path:
