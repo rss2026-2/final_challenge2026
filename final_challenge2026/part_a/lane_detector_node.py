@@ -40,7 +40,7 @@ class LineDetector(Node):
         self.declare_parameter("low_threshold", 50)
         self.declare_parameter("high_threshold", 150)
         self.declare_parameter("direction", "left")
-        self.declare_parameter("horizon_y_ratio", 0.54)
+        self.declare_parameter("horizon_y_ratio", 0.50)
         self.declare_parameter("goal_topic", "/goal_point")
 
         self.debug_topic = self.get_parameter("debug_topic").value
@@ -61,7 +61,7 @@ class LineDetector(Node):
         self.last_right_line = None
         self.lane_width_sum_px = 0.0
         self.lane_width_count = 0
-        self.avg_lane_width_px = 220.0
+        self.avg_lane_width_px = 235.0
 
         # use this line to debug with static images:
         # self.load_and_publish_image('src/final_challenge2026/racetrack_images/lane_3/image45.png')
@@ -153,27 +153,27 @@ class LineDetector(Node):
         ls, rs = [], []
 
         for x1, y1, x2, y2 in [s[0] for s in lines]:
-            if abs(np.arctan2(y2 - y1, x2 - x1)) >= np.deg2rad(15) and y2 != y1:
+            if abs(np.arctan2(y2 - y1, x2 - x1)) >= np.deg2rad(20) and y2 != y1:
                 x_bot = x1 + (y_bot - y1) * (x2 - x1) / (y2 - y1)
                 (ls if x_bot < (w / 2.0) else rs).append((x1, y1, x2, y2))
 
         get_x = lambda s: s[0] + (y_bot - s[1]) * (s[2] - s[0]) / (s[3] - s[1])
         curr_pair = (max(ls, key=get_x) if ls else None, min(rs, key=get_x) if rs else None)
 
-        # if curr_pair[0] is None and curr_pair[1] is None:
-        #     self.get_logger().info("FUCK NO LANES DETECTED")
-        #     curr_pair = (self.last_left_line, self.last_right_line)
-        # elif curr_pair[0] is None and curr_pair[1] is not None:
-        #     self.get_logger().info("Inferring the left lane...")
-        #     curr_pair = (self._shift_line(curr_pair[1], -self.avg_lane_width_px, w), curr_pair[1])
-        # elif curr_pair[0] is not None and curr_pair[1] is None:
-        #     self.get_logger().info("Inferring the right lane...")
-        #     curr_pair = (curr_pair[0], self._shift_line(curr_pair[0], self.avg_lane_width_px, w))
-
-        # BELOW IS TO DEBUG DROPPING A LINE IN CURR_PAIR.
-        if None in curr_pair:
+        if curr_pair[0] is None and curr_pair[1] is None:
             self.get_logger().info("FUCK NO LANES DETECTED")
             curr_pair = (self.last_left_line, self.last_right_line)
+        elif curr_pair[0] is None and curr_pair[1] is not None:
+            self.get_logger().info("Inferring the left lane...")
+            curr_pair = (self._shift_line(curr_pair[1], -self.avg_lane_width_px, w), curr_pair[1])
+        elif curr_pair[0] is not None and curr_pair[1] is None:
+            self.get_logger().info("Inferring the right lane...")
+            curr_pair = (curr_pair[0], self._shift_line(curr_pair[0], self.avg_lane_width_px, w))
+
+        # BELOW IS TO DEBUG DROPPING A LINE IN CURR_PAIR.
+        # if None in curr_pair:
+        #     self.get_logger().info("FUCK NO LANES DETECTED")
+        #     curr_pair = (self.last_left_line, self.last_right_line)
 
         msg, dbg = self.goal_from_pair(curr_pair, image, ls, rs, h, w, horizon_y)
 
