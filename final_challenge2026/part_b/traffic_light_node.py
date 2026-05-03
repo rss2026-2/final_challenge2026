@@ -24,8 +24,8 @@ class TrafficLight(Node):
         # -- ROS2 Topics
         self.declare_parameter('tl_drive_topic', '/vesc/high_level/input/nav_0')
         self.declare_parameter('tl_point_topic', '/tl_relative_point')
-        # self.declare_parameter('traffic_light_topic', '/traffic_light')
-        self.declare_parameter('traffic_light_topic', '/zed/zed_node/rgb/image_rect_color')
+        self.declare_parameter('traffic_light_topic', '/traffic_light')
+        # self.declare_parameter('traffic_light_topic', '/zed/zed_node/rgb/image_rect_color')
 
         self.tl_drive_topic = self.get_parameter('tl_drive_topic').get_parameter_value().string_value
         self.tl_point_topic = self.get_parameter('tl_point_topic').get_parameter_value().string_value
@@ -33,27 +33,25 @@ class TrafficLight(Node):
         
         # -- Static params
         self.declare_parameter('distance_threshold', 3.0)
-        self.declare_parameter('logger_rate', 2.0)
+        # self.declare_parameter('logger_rate', 2.0)
 
         self.distance_threshold = self.get_parameter('distance_threshold').get_parameter_value().double_value
-        self.logger_rate = self.get_parameter('logger_rate').get_parameter_value().double_value
+        # self.logger_rate = self.get_parameter('logger_rate').get_parameter_value().double_value
         ### -- Declared parameters (End) -- ###
 
         ### -- Publishers and Subscribers (Start) -- ###
         # -- Pubs
         self.tl_drive_pub = self.create_publisher(AckermannDriveStamped, self.tl_drive_topic, 10)
-        # self.red_light_pub = self.create_publisher(Bool, self.red_light_topic, 10)
         self.image_debug_pub = self.create_publisher(Image, "/debug_img", 10)
 
         # -- Subs
         self.tl_point_sub = self.create_subscription(Point, self.tl_point_topic, self.tl_point_callback, 1)
         self.traffic_light_sub = self.create_subscription(Image, self.traffic_light_topic, self.traffic_light_callback, 1)
-        # self.red_light_sub = self.create_subscription(Bool, self.red_light_topic, self.red_light_callback, 1)
         ### -- Publishers and Subscribers (End) -- ###
 
-        self.traffic_light_close = True
-        self.recorded_x_dists_from_light = []
-        self.record_start = 0.0
+        self.traffic_light_close = False
+        # self.recorded_x_dists_from_light = []
+        # self.record_start = 0.0
         
         self.bridge = CvBridge()
         self.get_logger().info("=== Traffic Light Node Initialized ===")
@@ -64,17 +62,17 @@ class TrafficLight(Node):
         performing color segmentation on
         """
         x_dist_from_light = msg.x
-        self.traffic_light_close =  x_dist_from_light < self.distance_threshold
+        self.traffic_light_close = x_dist_from_light < self.distance_threshold
 
-        self.recorded_x_dists_from_light.append(x_dist_from_light)
-        current_time = self.get_clock().now().nanoseconds
+        # self.recorded_x_dists_from_light.append(x_dist_from_light)
+        # current_time = self.get_clock().now().nanoseconds
         
-        if (current_time - self.record_start) / 1e9 > self.logger_rate:
-            avg_x_dist = np.mean(np.array(self.recorded_x_dists_from_light))
-            self.get_logger().info(f"Distance from traffic light: {avg_x_dist}")
+        # if (current_time - self.record_start) / 1e9 > self.logger_rate:
+        #     avg_x_dist = np.mean(np.array(self.recorded_x_dists_from_light))
+        #     self.get_logger().info(f"Distance from traffic light: {avg_x_dist}")
             
-            self.recorded_x_dists_from_light = []
-            self.record_start = current_time
+        #     self.recorded_x_dists_from_light = []
+        #     self.record_start = current_time
 
 
     def traffic_light_callback(self, image_msg):
@@ -104,13 +102,12 @@ class TrafficLight(Node):
         #     # self.red_light_pub.publish(bool_msg)
         #     pass
 
-        elif tf_color == "green":
-            # If we see a green light, 
-            # Publish false to /red_light
-            bool_msg = Bool()
-            bool_msg.data = False
-            # self.red_light_pub.publish(bool_msg)
-            pass
+        # elif tf_color == "green":
+        #     # If we see a green light, 
+        #     # Publish false to /red_light
+        #     bool_msg = Bool()
+        #     bool_msg.data = False
+        #     pass
             
         else:
             # TODO: What to do if we couldn't detect any of the colors,
@@ -120,19 +117,6 @@ class TrafficLight(Node):
             bool_msg.data = False
             # self.red_light_pub.publish(bool_msg) 
             pass
-
-    # def red_light_callback(self, msg):
-    #     """
-    #     Looks for whether the signal is a red light or not
-    #     """
-    #     # If we're not even close to the traffic light avoid this callback
-    #     if not self.traffic_light_close:
-    #         return
-
-    #     # TODO: Give the angle to publish_stop through a drive callback or 
-    #     # topic that publishes only the angle
-    #     self.publish_stop()
-    #     self.get_logger().info("Published TL stop command")
 
     def tf_color_detection(self, image):
         """
