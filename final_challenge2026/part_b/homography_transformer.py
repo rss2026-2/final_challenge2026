@@ -8,7 +8,7 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
 from visualization_msgs.msg import Marker
-from vs_msgs.msg import Pixel, PixelArray
+from vs_msgs.msg import ConeLocationPixel
 from geometry_msgs.msg import Point, Point32, Polygon
 
 from viz_utils.visualization_tools import VisualizationTools
@@ -43,7 +43,7 @@ METERS_PER_INCH = 0.0254
 
 class HomographyTransformer(Node):
     def __init__(self):
-        super().__init__("homography_transformer_final")
+        super().__init__("homography_transformer_b")
 
         # -- Declared parameters --
         self.declare_parameter('point_objects', ['tl', 'pm', 'person'])        
@@ -68,9 +68,9 @@ class HomographyTransformer(Node):
 
             # Create subscriber, which uses a generic callback function with publishers as args
             point_px_sub = self.create_subscription(
-            Pixel, 
+            ConeLocationPixel, 
             point_px_topic, 
-            lambda msg, p_pub=point_pub, m_pub=marker_pub: self.point_px_callback(msg, p_pub, m_pub), 
+            lambda msg, p_pub=point_pub, m_pub=point_marker_pub: self.point_px_callback(msg, p_pub, m_pub), 
             1)
 
             self.point_pubs[obj_name] = point_pub
@@ -80,7 +80,7 @@ class HomographyTransformer(Node):
         # Click publishers and subscribers
         self.click_pub = self.create_publisher(Point, '/relative_click', 10)
         self.click_marker_pub = self.create_publisher(Marker, '/click_marker', 10)
-        self.click_px_sub = self.create_subscription(Pixel, "/click_px", self.click_callback, 1)
+        self.click_px_sub = self.create_subscription(ConeLocationPixel, "/click_px", self.click_callback, 1)
 
         if not len(PTS_GROUND_PLANE) == len(PTS_IMAGE_PLANE):
             rclpy.logerr("ERROR: PTS_GROUND_PLANE and PTS_IMAGE_PLANE should be of same length")
@@ -114,7 +114,7 @@ class HomographyTransformer(Node):
         relative_xy_msg.y = float(y)
 
         point_pub.publish(relative_xy_msg)
-        VisualizationTools.draw_cylinder(x, y, point_marker_pub, self.get_clock().now(), "/base_link")        
+        VisualizationTools.draw_cylinder(x, y, point_marker_pub, self.get_clock().now().to_msg(), "/base_link")        
 
     def click_callback(self, msg):
 
@@ -131,7 +131,7 @@ class HomographyTransformer(Node):
         y += 0.06 # Zed camera to base_link offset
         
         self.click_pub.publish(relative_xy_msg)
-        VisualizationTools.draw_cylinder(x, y, self.click_marker_pub, self.get_clock().now(), "/base_link")        
+        VisualizationTools.draw_cylinder(x, y, self.click_marker_pub, self.get_clock().now().to_msg(), "/base_link")        
     
     def transform_uv_to_xy(self, u, v):
         """
