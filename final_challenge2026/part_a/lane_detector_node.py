@@ -37,12 +37,15 @@ class LineDetector(Node):
         super().__init__("line_detector")
         self.declare_parameter("image_topic", "/zed/zed_node/rgb/image_rect_color")
         self.declare_parameter("debug_topic", "/track_lines")
+        self.declare_parameter("visualize_steps", False)
         self.declare_parameter("low_threshold", 50)
         self.declare_parameter("high_threshold", 150)
         self.declare_parameter("direction", "left")
         self.declare_parameter("horizon_y_ratio", 0.48)
         self.declare_parameter("goal_topic", "/goal_point")
+        self.declare_parameter("avg_lane_width", 170.0)
 
+        self.avg_lane_width_px = self.get_parameter("avg_lane_width").value
         self.debug_topic = self.get_parameter("debug_topic").value
         self.image_topic = self.get_parameter("image_topic").value
         self.goal_topic = self.get_parameter("goal_topic").value
@@ -50,18 +53,34 @@ class LineDetector(Node):
         self.high_threshold = self.get_parameter("high_threshold").value
         self.direction = self.get_parameter("direction").value
         self.horizon_y_ratio = self.get_parameter("horizon_y_ratio").value
+        self.visualize_steps = self.get_parameter("visualize_steps").value
 
         self.image_sub = self.create_subscription(Image, self.image_topic, self.hough_callback, 5)
         self.debug_pub = self.create_publisher(Image, self.debug_topic, 10)
         self.goal_pub = self.create_publisher(Point, self.goal_topic, 10)
         self.bridge = CvBridge()
+        self.step_pubs = {}
+
+        if self.visualize_steps:
+            self.step_pubs = {
+                "roi": self.create_publisher(Image, f"{self.debug_topic}/step_1_roi", 10),
+                "mask": self.create_publisher(Image, f"{self.debug_topic}/step_2_white_mask", 10),
+                "edges": self.create_publisher(Image, f"{self.debug_topic}/step_3_edges", 10),
+                "hough_lines": self.create_publisher(Image, f"{self.debug_topic}/step_4_hough_lines", 10),
+                "filtered_lines": self.create_publisher(
+                    Image, f"{self.debug_topic}/step_5_filtered_lines", 10
+                ),
+                "classified_lines": self.create_publisher(
+                    Image, f"{self.debug_topic}/step_6_classified_lines", 10
+                ),
+                "goal": self.create_publisher(Image, f"{self.debug_topic}/step_7_goal", 10),
+            }
 
         # cache lanes in case of frames dropping
         self.last_left_line = None
         self.last_right_line = None
         self.lane_width_sum_px = 0.0
         self.lane_width_count = 0
-        self.avg_lane_width_px = 170.0
 
         # use this line to debug with static images:
         # self.load_and_publish_image('src/final_challenge2026/racetrack_images/lane_3/image45.png')
@@ -117,6 +136,13 @@ class LineDetector(Node):
         cv2.fillPoly(black_mask, polygon, 255)
         masked_edges = cv2.bitwise_and(edges, black_mask)
 
+        if self.visualize_steps:
+            roi_image = lane_image.copy()
+            cv2.polylines(roi_image, polygon, True, (0, 255, 255), 2)
+            self.publish_step_image("roi", roi_image)
+            self.publish_step_image("mask", cv2.bitwise_and(mask, black_mask))
+            self.publish_step_image("edges", masked_edges)
+
         lines = cv2.HoughLinesP(
             masked_edges,
             1,
@@ -125,6 +151,9 @@ class LineDetector(Node):
             minLineLength=40,
             maxLineGap=10,
         )
+
+        if self.visualize_steps:
+            self.publish_step_image("hough_lines", self._draw_line_overlay(masked_edges, lines))
 
         # goal point
         self.find_goal(lines, lane_image)
@@ -151,11 +180,16 @@ class LineDetector(Node):
         horizon_y = int(np.clip(h * self.horizon_y_ratio, int(h * 0.2), h - 1))
         y_bot = h - 1
         ls, rs = [], []
+        filtered_lines = []
 
         for x1, y1, x2, y2 in [s[0] for s in lines]:
             if abs(np.arctan2(y2 - y1, x2 - x1)) >= np.deg2rad(20) and y2 != y1:
+                filtered_lines.append((x1, y1, x2, y2))
                 x_bot = x1 + (y_bot - y1) * (x2 - x1) / (y2 - y1)
                 (ls if x_bot < (w / 2.0) else rs).append((x1, y1, x2, y2))
+
+        if self.visualize_steps:
+            self.publish_step_image("filtered_lines", self._draw_line_overlay(image, filtered_lines))
 
         get_x = lambda s: s[0] + (y_bot - s[1]) * (s[2] - s[0]) / (s[3] - s[1])
         curr_pair = (max(ls, key=get_x) if ls else None, min(rs, key=get_x) if rs else None)
@@ -264,6 +298,20 @@ class LineDetector(Node):
         cv2.circle(dbg, (int(left_x_h), horizon_y), 5, (255, 0, 255), -1)
         cv2.circle(dbg, (int(right_x_h), horizon_y), 5, (0, 255, 255), -1)
 
+        if self.visualize_steps:
+            classified_lines = image.copy()
+            cv2.polylines(classified_lines, [roi], True, (0, 255, 255), 2)
+            cv2.line(classified_lines, (w // 2, 0), (w // 2, h - 1), (0, 255, 0), 2)
+            cv2.line(classified_lines, (0, horizon_y), (w - 1, horizon_y), (255, 255, 0), 2)
+            for s in ls:
+                cv2.line(classified_lines, s[:2], s[2:], (255, 0, 0), 1)
+            for s in rs:
+                cv2.line(classified_lines, s[:2], s[2:], (0, 255, 0), 1)
+            for s, c in zip((left_seg, right_seg), [(255, 0, 255), (0, 255, 255)]):
+                cv2.line(classified_lines, s[:2], s[2:], c, 4)
+            self.publish_step_image("classified_lines", classified_lines)
+            self.publish_step_image("goal", dbg)
+
         return Point(x=float(goal_x), y=float(goal_y), z=0.0), dbg
 
     def _shift_line(self, line, x_offset, width):
@@ -315,6 +363,42 @@ class LineDetector(Node):
                 cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 0), 10)
         combo_image = cv2.addWeighted(image, 0.8, line_image, 1, 1)
         self.publish_debug_image(combo_image)
+
+    def _draw_line_overlay(self, image, lines):
+        if len(image.shape) == 2:
+            base = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        else:
+            base = image.copy()
+
+        if lines is None:
+            return base
+
+        line_image = np.zeros_like(base)
+        try:
+            for x1, y1, x2, y2 in lines:
+                cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 255), 3)
+        except Exception:
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 255), 3)
+        return cv2.addWeighted(base, 0.8, line_image, 1, 1)
+
+    def publish_step_image(self, step_name, image):
+        if not self.visualize_steps:
+            return
+
+        publisher = self.step_pubs.get(step_name)
+        if publisher is None:
+            return
+
+        try:
+            step_msg = self.bridge.cv2_to_imgmsg(image, "bgr8")
+        except Exception:
+            if len(image.shape) == 2:
+                step_msg = self.bridge.cv2_to_imgmsg(image, "mono8")
+            else:
+                step_msg = self.bridge.cv2_to_imgmsg(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY), "mono8")
+        publisher.publish(step_msg)
 
     def publish_debug_image(self, image):
         """

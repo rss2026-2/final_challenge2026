@@ -1,6 +1,14 @@
 <launch>
 
   <node pkg="final_challenge2026" name="lane_detector_node" exec="lane_detector" output="screen">
+    <param name="image_topic" value="/zed/zed_node/rgb/image_rect_color"/>
+    <param name="debug_topic" value="/track_lines"/>
+    <param name="visualize_steps" value="false"/>
+    <param name="low_threshold" value="50"/>
+    <param name="high_threshold" value="150"/>
+    <param name="direction" value="left"/>
+    <param name="horizon_y_ratio" value="0.48"/>
+    <param name="goal_topic" value="/goal_point"/>
   </node>
 
   <node pkg="final_challenge2026" name="lane_follower_node" exec="lane_follower" output="screen">
