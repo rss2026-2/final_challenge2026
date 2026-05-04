@@ -39,6 +39,7 @@ setup(
             'image_publisher = final_challenge2026.part_b.image_publisher_node:main',
             'drive_publisher = final_challenge2026.part_b.drive_command_node:main',
             'path_planner = final_challenge2026.part_b.path_planner_node:main'
+            'trajectory_follower = final_challenge2026.part_b.trajectory_follower:main'
         ],
     },
 )

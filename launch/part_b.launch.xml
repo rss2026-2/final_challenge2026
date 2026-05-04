@@ -26,4 +26,7 @@
         <param from="$(find-pkg-share final_challenge2026)/config/partb.yaml"/>
     </node> -->
 
+    <node pkg="final_challenge2026" name="trajectory_follower_node" exec="trajectory_follower" output="screen">
+        <param from="$(find-pkg-share final_challenge2026)/config/partb.yaml"/>
+
 </launch>

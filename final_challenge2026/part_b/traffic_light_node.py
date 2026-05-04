@@ -64,15 +64,15 @@ class TrafficLight(Node):
         x_dist_from_light = msg.x
         self.traffic_light_close = x_dist_from_light < self.distance_threshold
 
-        # self.recorded_x_dists_from_light.append(x_dist_from_light)
-        # current_time = self.get_clock().now().nanoseconds
+        self.recorded_x_dists_from_light.append(x_dist_from_light)
+        current_time = self.get_clock().now().nanoseconds
         
-        # if (current_time - self.record_start) / 1e9 > self.logger_rate:
-        #     avg_x_dist = np.mean(np.array(self.recorded_x_dists_from_light))
-        #     self.get_logger().info(f"Distance from traffic light: {avg_x_dist}")
+        if (current_time - self.record_start) / 1e9 > self.logger_rate:
+            avg_x_dist = np.mean(np.array(self.recorded_x_dists_from_light))
+            self.get_logger().info(f"Distance from traffic light: {avg_x_dist}")
             
-        #     self.recorded_x_dists_from_light = []
-        #     self.record_start = current_time
+            self.recorded_x_dists_from_light = []
+            self.record_start = current_time
 
 
     def traffic_light_callback(self, image_msg):

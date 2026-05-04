@@ -27,3 +27,8 @@ path_planner_node:
     max_step_size: 5
     safety_cell_radius: 5
     a_star_weights: [1.0,1.0,-1.0,-5.0] # path_cost, goal_cost, avg_clearance, min_clearance
+
+trajectory_follower_node:
+  ros__parameters:
+    odom_topic: "/pf/pose/odom"
+    drive_topic: "/vesc/high_level/input/nav_2"

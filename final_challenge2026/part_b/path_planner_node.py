@@ -2,7 +2,7 @@ import rclpy
 
 from geometry_msgs.msg import PoseArray, PoseStamped, Point
 from nav_msgs.msg import OccupancyGrid, Odometry
-from path_planning.utils import LineTrajectory
+from part_b.utils import LineTrajectory
 from rclpy.node import Node
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
