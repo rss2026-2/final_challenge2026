@@ -120,7 +120,7 @@ class LaneFollower(Node):
         )
 
         # clamp the angle so the car doesn't abruptly turn
-        if float(delta) >= 0.08 or float(delta) <= -0.08:
+        if float(delta) >= 0.1 or float(delta) <= -0.1:
             self.get_logger().info("WARNING: Car tried to turn abruptly.")
             return self.last_delta
 
