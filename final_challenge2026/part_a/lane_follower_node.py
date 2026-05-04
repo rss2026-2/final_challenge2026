@@ -48,7 +48,7 @@ class LaneFollower(Node):
         self.MAX_STEERING_ANGLE = self.get_parameter('max_steering_angle').get_parameter_value().double_value
         self.VELOCITY = self.get_parameter('velocity').get_parameter_value().double_value
         self.LOOKAHEAD = self.get_parameter('lookahead').get_parameter_value().double_value
-
+        self.last_delta = None
         self.get_logger().info("Parking Controller Initialized")
 
     def relative_cone_callback(self, msg):
@@ -118,9 +118,14 @@ class LaneFollower(Node):
             2 * self.CAR_LENGTH * target_point[1],
             lookahead_dist**2
         )
+
+        # clamp the angle so the car doesn't abruptly turn
+        if float(delta) >= 0.1 or float(delta) <= -0.1:
+            self.get_logger().info("WARNING: Car tried to turn abruptly.")
+            return self.last_delta
+
+        self.last_delta = delta
         return delta
-
-
 
     def get_point_on_line(self, p2, lookahead_dist: float, p1 = (0,0)):
         """
