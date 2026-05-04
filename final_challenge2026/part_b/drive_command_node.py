@@ -11,7 +11,7 @@ class SimpleDrivePublisher(Node):
     """
 
     def __init__(self):
-        super().__init__("image_publisher")
+        super().__init__("drive_publisher")
 
         ### -- Declared parameters (Start) -- ###
         # -- ROS2 Topics

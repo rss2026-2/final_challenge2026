@@ -65,6 +65,9 @@ class PathPlan(Node):
         self.dist_map = None
         self.pose = None
 
+        self.initial_point = None
+        self.paths = []
+
         self.get_logger().info("Awaiting Map")
 
     def map_cb(self, map_msg):
@@ -178,18 +181,36 @@ class PathPlan(Node):
             return
 
         goal_pose = goal_msg.pose
-        start_point = (self.pose["position"][0], self.pose["position"][1])
+
+        if len(self.path) == 0:
+            start_point = (self.pose["position"][0], self.pose["position"][1])
+            self.initial_point = start_point
+
+        else:
+            start_point = (self.pose_arrays[-2][-1].position.x, self.pose_arrays[-2][-1].position.y)
+
         end_point = (goal_pose.position.x, goal_pose.position.y)
 
-        path_found = self.plan_path(
+        path_to_new_goal = self.plan_path(
             start_point = start_point,
             end_point = end_point,
             visualize = False
         )
 
-        if not path_found:
-            self.get_logger().info("No path found to end point")
+        path_to_start = self.plan_path(
+            start_point = end_point,
+            end_point = self.initial_point
+        )
+
+        if not path_to_new_goal or not path_to_start:
+            self.get_logger().info("No path found")
             return
+        
+        self.paths[-1] = path_to_new_goal
+        self.paths.append(path_to_start)
+
+        self.trajectory.clear()
+        self.trajectory.addPoints([point for path in self.paths for point in path])
 
         self.get_logger().info("Path Generated!")
 
@@ -199,6 +220,8 @@ class PathPlan(Node):
 
         self.trajectory.publish_viz(traj_color = self.viz_traj_color)
         self.get_logger().info("Path Visualized!")
+    
+            
     
     def find_valid_neighbors(self, curr_cell, step_size):
         """
@@ -286,12 +309,9 @@ class PathPlan(Node):
         if found_path is None:
             return False
         
-        shortened_path = self.shorten_cell_path(found_path)
-        real_path = self.grid_to_real_frame(shortened_path)
+        real_path = self.grid_to_real_frame(found_path)
 
-        self.trajectory.clear()
-        self.trajectory.addPoints(real_path)
-        return True
+        return real_path
     
     def calculate_new_cost(self, new_path, end_cell, curr_path_cost, curr_avg_clearance, curr_min_clearance):
         """
