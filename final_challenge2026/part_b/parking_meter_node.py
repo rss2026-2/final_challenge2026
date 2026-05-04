@@ -5,7 +5,7 @@ from vs_msgs.msg import ConeLocation
 from cv_bridge import CvBridge
 import cv2
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, Point
 from nav_msgs.msg import Odometry
 from ackermann_msgs.msg import AckermannDriveStamped
 from rclpy.time import Time
@@ -37,7 +37,7 @@ class ParkingMeter(Node):
         # -- Publishers and subscribers --
         # listen to the annotated image that we would like to save
         self.parking_meter_img_sub = self.create_subscription(Image, self.parking_meter_img_topic, self.parking_meter_img_callback, 1)
-        self.parking_meter_loc_sub = self.create_subscription(Pose, self.parking_meter_loc_topic, self.parking_meter_loc_callback, 1)
+        self.parking_meter_loc_sub = self.create_subscription(Point, self.parking_meter_loc_topic, self.parking_meter_loc_callback, 1)
         # TODO: ^ check what is being returned here
         self.location_sub = self.create_subscription(Odometry, self.location_topic, self.location_callback, 1)
 
@@ -88,7 +88,7 @@ class ParkingMeter(Node):
 
         # TODO: park at the meter
         if not self.currently_parked:
-            self.publish_status_update(f'Found new cone location to drive to: {(self.goal_x, self.goal_y)}')
+            self.publish_status_update(f' tFound new cone location to driveo: {(self.goal_x, self.goal_y)}')
             # send the location to the cone parking
             relative_location = ConeLocation()
             relative_location.x_pos = self.goal_x
@@ -175,7 +175,7 @@ class ParkingMeter(Node):
 
     def extract_meter_location(self, msg):
         """relative pose message, find the location of the parking meter within it."""
-        return msg.position.x, msg.position.y
+        return msg.x, msg.y
 
     def get_parking_duration(self, current_time_stamp):
         """Returns how long we have been parked form a cached timestamp of the initial parking until the current timestamp"""
@@ -201,7 +201,7 @@ class ParkingMeter(Node):
             self.parked_locations = np.vstack((self.parked_locations, averaged_location))
         else:
             self.parked_locations = averaged_location
-        self.current_parking_meter_locations = None
+        self.current_parking_meter_locations = []
         # self.get_logger().info(f'Updated the parked locations: {self.parked_locations}')
         self.publish_status_update(f'Updated the parked locations: {self.parked_locations}')
 
@@ -233,4 +233,17 @@ class ParkingMeter(Node):
         msg = String()
         msg.data = text
         self.status_updates_pub.publish(msg)
+<<<<<<< HEAD
+        # self.get_logger().info(f'Publishing: "{text}"') # can toggle logging verbosity with this
+=======
         self.get_logger().info(f'Publishing: "{text}"') # can toggle logging verbosity with this
+>>>>>>> f6c6dad920fa839b59046c6770b9a4ae12e8531a
+
+def main(args=None):
+    rclpy.init(args=args)
+    planner = ParkingMeter()
+    rclpy.spin(planner)
+    rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()

@@ -11,7 +11,7 @@ from rclpy.node import Node
 from typing import List
 from ultralytics import YOLO
 
-from vs_msgs.msg import Pixel
+from vs_msgs.msg import ConeLocationPixel
 
 
 @dataclass(frozen=True)
@@ -50,9 +50,9 @@ class YoloDetection(Node):
 
         # -- Publishers and subscribers --
         self.traffic_light_pub = self.create_publisher(Image, self.traffic_light_topic, 10)
-        self.tl_point_px_pub = self.create_publisher(Pixel, self.tl_point_px_topic, 10)
-        self.pm_point_px_pub = self.create_publisher(Pixel, self.pm_point_px_topic, 10)
-        self.person_point_px_pub = self.create_publisher(Pixel, self.person_point_px_topic, 10)
+        self.tl_point_px_pub = self.create_publisher(ConeLocationPixel, self.tl_point_px_topic, 10)
+        self.pm_point_px_pub = self.create_publisher(ConeLocationPixel, self.pm_point_px_topic, 10)
+        self.person_point_px_pub = self.create_publisher(ConeLocationPixel, self.person_point_px_topic, 10)
 
         ################
 
@@ -246,14 +246,9 @@ class YoloDetection(Node):
             
             # Define the location of the detection using the bottom-midpoint value
             x_mid = (det.x1 + det.x2)/2.0
-            pixel_msg = Pixel()
+            pixel_msg = ConeLocationPixel()
             pixel_msg.u = float(x_mid)
             pixel_msg.v = float(det.y2)
-
-            if detection_name is not None:
-                self.get_logger().info(f"YOLO has detected: {detection_name}")
-            else:
-                self.get_logger().warn(f"YOLO could not detect anything")
                 
             publisher = None
             # Use the correct publisher depending on what the detection is
@@ -285,7 +280,7 @@ class YoloDetection(Node):
                 return
         
             publisher.publish(pixel_msg)
-            self.get_logger().info(f'published {detection_name} detection to its respective topic')
+            # self.get_logger().info(f'published {detection_name} detection to its respective topic')
     ###############    
 
 
