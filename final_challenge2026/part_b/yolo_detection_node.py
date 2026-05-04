@@ -249,11 +249,6 @@ class YoloDetection(Node):
             pixel_msg = ConeLocationPixel()
             pixel_msg.u = float(x_mid)
             pixel_msg.v = float(det.y2)
-
-            if detection_name is not None:
-                self.get_logger().info(f"YOLO has detected: {detection_name}")
-            else:
-                self.get_logger().warn(f"YOLO could not detect anything")
                 
             publisher = None
             # Use the correct publisher depending on what the detection is
@@ -285,7 +280,7 @@ class YoloDetection(Node):
                 return
         
             publisher.publish(pixel_msg)
-            self.get_logger().info(f'published {detection_name} detection to its respective topic')
+            # self.get_logger().info(f'published {detection_name} detection to its respective topic')
     ###############    
 
 

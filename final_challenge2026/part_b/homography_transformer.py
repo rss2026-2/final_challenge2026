@@ -112,7 +112,7 @@ class HomographyTransformer(Node):
         relative_xy_msg = Point()
         relative_xy_msg.x = float(x)
         relative_xy_msg.y = float(y)
-
+        
         point_pub.publish(relative_xy_msg)
         VisualizationTools.draw_cylinder(x, y, point_marker_pub, self.get_clock().now().to_msg(), "/base_link")        
 
