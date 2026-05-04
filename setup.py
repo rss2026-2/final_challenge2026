@@ -32,10 +32,6 @@ setup(
             'lane_detector = final_challenge2026.part_a.lane_detector_node:main',
             'lane_follower = final_challenge2026.part_a.lane_follower_node:main',
             'homography_transformer_OLD = final_challenge2026.homography_transformer_OLD:main',
-<<<<<<< HEAD
-            
-=======
->>>>>>> f6c6dad920fa839b59046c6770b9a4ae12e8531a
             'homography_transformer_b = final_challenge2026.part_b.homography_transformer:main',
             'yolo_detection = final_challenge2026.part_b.yolo_detection_node:main',
             'traffic_light = final_challenge2026.part_b.traffic_light_node:main',
