@@ -7,7 +7,7 @@ from cv_bridge import CvBridge
 from computer_vision.color_segmentation import find_most_prominent_color
 
 from sensor_msgs.msg import Image
-from std_msgs.msg import Header, Bool
+from std_msgs.msg import Header, Bool, Float32
 from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import Point
 
@@ -33,16 +33,17 @@ class TrafficLight(Node):
         
         # -- Static params
         self.declare_parameter('distance_threshold', 3.0)
-        # self.declare_parameter('logger_rate', 2.0)
+        self.declare_parameter('logger_rate', 2.0)
 
         self.distance_threshold = self.get_parameter('distance_threshold').get_parameter_value().double_value
-        # self.logger_rate = self.get_parameter('logger_rate').get_parameter_value().double_value
+        self.logger_rate = self.get_parameter('logger_rate').get_parameter_value().double_value
         ### -- Declared parameters (End) -- ###
 
         ### -- Publishers and Subscribers (Start) -- ###
         # -- Pubs
         self.tl_drive_pub = self.create_publisher(AckermannDriveStamped, self.tl_drive_topic, 10)
         self.image_debug_pub = self.create_publisher(Image, "/debug_img", 10)
+        self.x_dist_pub = self.create_publisher(Float32, "/tl_dist", 10)
 
         # -- Subs
         self.tl_point_sub = self.create_subscription(Point, self.tl_point_topic, self.tl_point_callback, 1)
@@ -50,8 +51,8 @@ class TrafficLight(Node):
         ### -- Publishers and Subscribers (End) -- ###
 
         self.traffic_light_close = False
-        # self.recorded_x_dists_from_light = []
-        # self.record_start = 0.0
+        self.recorded_x_dists_from_light = []
+        self.record_start = 0.0
         
         self.bridge = CvBridge()
         self.get_logger().info("=== Traffic Light Node Initialized ===")
@@ -62,6 +63,13 @@ class TrafficLight(Node):
         performing color segmentation on
         """
         x_dist_from_light = msg.x
+
+        x_offset = 0.1538 * x_dist_from_light + 0.04231
+        x_dist_from_light += x_offset
+        x_dist_msg = Float32()
+        x_dist_msg.data = x_dist_from_light
+        self.x_dist_pub.publish(x_dist_msg)
+
         self.traffic_light_close = x_dist_from_light < self.distance_threshold
 
         self.recorded_x_dists_from_light.append(x_dist_from_light)
