@@ -1,3 +1,36 @@
+homography_transformer:
+  ros__parameters:
+    # Point homography topics
+    point_topic: "/goal_point"
+    point_px_topic: "/point_px"
+    point_marker_topic: "/goal_marker"
+
+    # Lane homography topics
+    lane_topic: "/relative_lane"
+    lane_px_topic: "/lane_px"
+    lane_marker_topic: "/lane_marker"
+
+path_planner_node:
+  ros__parameters:
+    odom_topic: "/pf/pose/odom"
+    points_topic: "/clicked_point"
+    max_step_size: 5
+    safety_cell_radius: 5
+    a_star_weights: [1.0,1.0,-1.0,-5.0] # path_cost, goal_cost, avg_clearance, min_clearance
+
+trajectory_follower_node:
+  ros__parameters:
+    odom_topic: "/pf/pose/odom"
+    drive_topic: "/vesc/high_level/input/nav_2"
+
+yolo_detection_node:
+  ros__parameters:
+    traffic_light_topic: "/traffic_light"
+    tl_point_px_topic: "/tl_point_px"
+    pm_point_px_topic: "/pm_point_px"
+    person_point_px_topic: "/person_point_px"
+    camera_topic: "/zed/zed_node/rgb/image_rect_color"
+
 traffic_light_node:
   ros__parameters:
     tl_drive_topic: "/vesc/high_level/input/nav_0" # Publishes drive commands to car
@@ -12,23 +45,7 @@ parking_meter_node:
     parking_meter_img_topic: "/yolo/annotated_image"
     location_topic: "/pf/pose/odom"
 
-yolo_detection_node:
+parking_controller:
   ros__parameters:
-    traffic_light_topic: "/traffic_light"
-    tl_point_px_topic: "/tl_point_px"
-    pm_point_px_topic: "/pm_point_px"
-    person_point_px_topic: "/person_point_px"
-    camera_topic: "/zed/zed_node/rgb/image_rect_color"
-
-path_planner_node:
-  ros__parameters:
-    odom_topic: "/pf/pose/odom"
-    points_topic: "/clicked_points"
-    max_step_size: 5
-    safety_cell_radius: 5
-    a_star_weights: [1.0,1.0,-1.0,-5.0] # path_cost, goal_cost, avg_clearance, min_clearance
-
-trajectory_follower_node:
-  ros__parameters:
-    odom_topic: "/pf/pose/odom"
-    drive_topic: "/vesc/high_level/input/nav_2"
+    drive_topic: "/vesc/high_level/input/nav_1"
+    detection_mode: "cone"

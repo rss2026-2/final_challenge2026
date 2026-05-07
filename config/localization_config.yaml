@@ -27,6 +27,8 @@ particle_filter:
     motion_orient_trans_noise: 0.3 # Proportion of orientation change affecting translational noise
     motion_pos_rot_noise: 0.4 # Proportion of position change affecting rotational noise
     motion_orient_rot_noise: 0.65 # Proportion of orientation change affecting rotational noise
+    motion_forward_bias: 1.10
+
 
     # -- Sensor model-related parameters --
     

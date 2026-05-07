@@ -7,6 +7,10 @@
         <param from="$(find-pkg-share final_challenge2026)/config/real_traffic_light_test_config.yaml"/>
     </node>
 
+    <node pkg="final_challenge2026" name="homography_transformer_b" exec="homography_transformer_b" output="screen">
+        <param from="$(find-pkg-share final_challenge2026)/config/homography_config.yaml"/>
+    </node>
+    
     <node pkg="final_challenge2026" name="drive_publisher" exec="drive_publisher" output="screen">
         <param from="$(find-pkg-share final_challenge2026)/config/real_traffic_light_test_config.yaml"/>
     </node>
