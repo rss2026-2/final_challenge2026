@@ -62,7 +62,7 @@ parking_meter_node:
 parking_controller:
   ros__parameters:
     drive_topic: "/pc_drive"
-    goal_topic: "/?"
+    point_topic: "/pc_relative_point"
     path_marker_topic: "/pc_path"
     parking_error_topic: "/parking_error"
 
