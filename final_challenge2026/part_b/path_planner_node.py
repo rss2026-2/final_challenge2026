@@ -1,6 +1,6 @@
 import rclpy
 
-from geometry_msgs.msg import PoseArray, PoseStamped, Point
+from geometry_msgs.msg import PoseArray, PoseStamped, Point, PointStamped
 from nav_msgs.msg import OccupancyGrid, Odometry
 from part_b.utils import LineTrajectory
 from rclpy.node import Node
@@ -24,7 +24,7 @@ class PathPlan(Node):
         super().__init__("grid_search_planner")
         self.declare_parameter('odom_topic', "/odom")
         self.declare_parameter('map_topic', "/map")
-        self.declare_parameter('points_topic', "/goal_pose")
+        self.declare_parameter('points_topic', "/clicked_point")
         self.declare_parameter('safety_cell_radius', 5)
         self.declare_parameter('max_step_size', 5)
         self.declare_parameter('a_star_weights', [1.0,1.0,-1.0,-5.0])
@@ -39,7 +39,7 @@ class PathPlan(Node):
 
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
         self.map_topic = self.get_parameter('map_topic').get_parameter_value().string_value
-        self.points_topic = self.get_paramter('points_topic').get_paramter_value().string_value
+        self.points_topic = self.get_parameter('points_topic').get_parameter_value().string_value
         self.safety_cell_radius = self.get_parameter('safety_cell_radius').get_parameter_value().integer_value
         self.max_step_size = self.get_parameter('max_step_size').get_parameter_value().integer_value
         self.a_star_weights = np.array(self.get_parameter('a_star_weights').get_parameter_value().double_array_value)
@@ -51,7 +51,7 @@ class PathPlan(Node):
     
 
         self.map_sub = self.create_subscription(OccupancyGrid, self.map_topic, self.map_cb, 1)
-        self.goal_sub = self.create_subscription(PoseStamped, self.points_topic, self.goal_cb, 10)
+        self.goal_sub = self.create_subscription(PointStamped, self.points_topic, self.goal_cb, 10)
         self.pose_sub = self.create_subscription(Odometry, self.odom_topic, self.pose_cb, 10)
 
         if self.publish_path:
@@ -180,16 +180,18 @@ class PathPlan(Node):
             self.get_logger().info("Map Information Not Received")
             return
 
-        goal_pose = goal_msg.pose
+        goal_point = goal_msg.point
 
-        if len(self.path) == 0:
+        if len(self.paths) == 0:
             start_point = (self.pose["position"][0], self.pose["position"][1])
             self.initial_point = start_point
 
         else:
-            start_point = (self.pose_arrays[-2][-1].position.x, self.pose_arrays[-2][-1].position.y)
+            start_point = self.paths[-2][-1]
+            self.paths.pop(-1)
 
-        end_point = (goal_pose.position.x, goal_pose.position.y)
+        # end_point = (goal_pose.position.x, goal_pose.position.y)
+        end_point = (goal_point.x, goal_point.y)
 
         path_to_new_goal = self.plan_path(
             start_point = start_point,
@@ -197,17 +199,17 @@ class PathPlan(Node):
             visualize = False
         )
 
-        path_to_start = self.plan_path(
-            start_point = end_point,
-            end_point = self.initial_point
-        )
+        # path_to_start = self.plan_path(
+        #     start_point = end_point,
+        #     end_point = self.initial_point
+        # )
 
-        if not path_to_new_goal or not path_to_start:
+        if path_to_new_goal is None: # or path_to_start is None:
             self.get_logger().info("No path found")
             return
         
-        self.paths[-1] = path_to_new_goal
-        self.paths.append(path_to_start)
+        self.paths.append(path_to_new_goal)
+        # self.paths.append(path_to_start)
 
         self.trajectory.clear()
         self.trajectory.addPoints([point for path in self.paths for point in path])
@@ -307,7 +309,7 @@ class PathPlan(Node):
                 heapq.heappush(queue, self.calculate_new_cost(new_path, end_cell, curr_path_cost, avg_clearance, min_clearance))
         
         if found_path is None:
-            return False
+            return
         
         real_path = self.grid_to_real_frame(found_path)
 
