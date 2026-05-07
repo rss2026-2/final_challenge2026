@@ -18,7 +18,7 @@ setup(
         (os.path.join('share', package_name, 'config'), glob('config/**/*.yaml', recursive = True)),
         (os.path.join('share', package_name, 'traffic_light_imgs'), glob('final_challenge2026/part_b/computer_vision/traffic_light_imgs/*.jpg')),
         (os.path.join('lib/', package_name, "computer_vision"), glob('final_challenge2026/part_b/computer_vision/*.py')),
-        (os.path.join('share', package_name, 'test_scripts'), glob('final_challenge2026/part_b/computer_vision/test_scripts/*.py')),
+        (os.path.join('share', package_name, 'test_scripts'), glob('final_challenge2026/part_b/test_scripts/*.py')),
     ],
     install_requires=['setuptools', 'visual_servoing'],
     zip_safe=True,
@@ -36,9 +36,10 @@ setup(
             'yolo_detection = final_challenge2026.part_b.yolo_detection_node:main',
             'traffic_light = final_challenge2026.part_b.traffic_light_node:main',
             'parking_meter = final_challenge2026.part_b.parking_meter_node:main',
-            'image_publisher = final_challenge2026.part_b.image_publisher_node:main',
-            'drive_publisher = final_challenge2026.part_b.drive_command_node:main',
-            'path_planner = final_challenge2026.part_b.path_planner_node:main'
+            'image_publisher = final_challenge2026.part_b.test_scripts.image_publisher_node:main',
+            'drive_publisher = final_challenge2026.part_b.test_scripts.drive_command_node:main',
+            'path_planner = final_challenge2026.part_b.path_planner_node:main',
+            'parking_controller = final_challenge2026.part_b.parking_controller:main',
             'trajectory_follower = final_challenge2026.part_b.trajectory_follower:main'
         ],
     },
