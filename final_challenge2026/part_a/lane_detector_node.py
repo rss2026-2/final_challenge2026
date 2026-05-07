@@ -173,7 +173,6 @@ class LineDetector(Node):
         :returns None or msg a ROS2 Point message
         """
         if lines is None:
-            self.get_logger().info("ERROR: Detected no lines.")
             return
 
         h, w = image.shape[:2]
@@ -183,7 +182,7 @@ class LineDetector(Node):
         filtered_lines = []
 
         for x1, y1, x2, y2 in [s[0] for s in lines]:
-            if abs(np.arctan2(y2 - y1, x2 - x1)) >= np.deg2rad(20) and y2 != y1:
+            if abs(np.arctan2(y2 - y1, x2 - x1)) >= np.deg2rad(15) and y2 != y1:
                 filtered_lines.append((x1, y1, x2, y2))
                 x_bot = x1 + (y_bot - y1) * (x2 - x1) / (y2 - y1)
                 (ls if x_bot < (w / 2.0) else rs).append((x1, y1, x2, y2))
@@ -195,13 +194,10 @@ class LineDetector(Node):
         curr_pair = (max(ls, key=get_x) if ls else None, min(rs, key=get_x) if rs else None)
 
         if curr_pair[0] is None and curr_pair[1] is None:
-            self.get_logger().info("FUCK NO LANES DETECTED")
             curr_pair = (self.last_left_line, self.last_right_line)
         elif curr_pair[0] is None and curr_pair[1] is not None:
-            self.get_logger().info("Inferring the left lane...")
             curr_pair = (self._shift_line(curr_pair[1], -self.avg_lane_width_px, w), curr_pair[1])
         elif curr_pair[0] is not None and curr_pair[1] is None:
-            self.get_logger().info("Inferring the right lane...")
             curr_pair = (curr_pair[0], self._shift_line(curr_pair[0], self.avg_lane_width_px, w))
 
         # BELOW IS TO DEBUG DROPPING A LINE IN CURR_PAIR.
@@ -266,7 +262,6 @@ class LineDetector(Node):
         self.lane_width_sum_px += lane_width_px
         self.lane_width_count += 1
         avg_lane_width_px = self.lane_width_sum_px / self.lane_width_count
-        self.get_logger().info(f"average lane width over node lifetime: {avg_lane_width_px:.1f} px")
 
         goal_x = float(np.clip(0.5 * (left_x_h + right_x_h), 0, w - 1))
         goal_y = float(horizon_y)
@@ -327,10 +322,10 @@ class LineDetector(Node):
         h, w = image.shape[:2]
         if self.direction == "left":
             return [
-                (int(w * 0.1), int(h * 0.8)),
+                (int(w * 0.05), int(h * 0.8)),
                 (int(w * 0.95), int(h * 0.8)),
                 (int(w * 0.90), int(h * 0.4)),
-                (int(w * 0.2), int(h * 0.4)),
+                (int(w * 0.1), int(h * 0.4)),
             ]
         return [
             (int(w * 0.05), int(h * 0.8)),
