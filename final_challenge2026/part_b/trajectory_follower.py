@@ -30,6 +30,9 @@ class PurePursuit(Node):
         self.declare_parameter("lookahead", 0.8)
         self.declare_parameter("error_epsilon", 1.0)
         self.declare_parameter("discretization_length", 0.1)
+        
+        self.declare_parameter("drive_timer_rate", 15)
+        self.declare_parameter("spin_timer_rate", 2)
 
         # -- Assigning variables --
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
@@ -40,6 +43,9 @@ class PurePursuit(Node):
         self.LOOKAHEAD = self.get_parameter('lookahead').get_parameter_value().double_value
         self.EPSILON = self.get_parameter('error_epsilon').get_parameter_value().double_value
         self.DISCRETIZATION_LENGTH = self.get_parameter('discretization_length').get_parameter_value().double_value
+        
+        drive_timer_rate = self.get_parameter('drive_timer_rate').get_parameter_value().double_value
+        spin_timer_rate = self.get_parameter('spin_timer_rate').get_parameter_value().double_value
 
         # -- Publishers and subscribers --
         self.pose_sub = self.create_subscription(Odometry,
@@ -57,6 +63,11 @@ class PurePursuit(Node):
         self.target_pub = self.create_publisher(Marker, '/target_point', 10)
         self.lookahead_pub = self.create_publisher(Marker, '/lookahead_line', 10)
 
+        self.drive_timer = self.create_timer(1/drive_timer_rate, self.drive_timer_callback)
+        # Timer to update spin drive cmd facilitating spinning the robot in a circle
+        self.spin_timer = self.create_timer(1/spin_timer_rate, self.robot_spin_timer_callback)
+        
+
         # -- Other constant vars --
         self.STEERING_ANGLE_THRESH = 1.2 # initially working with it at 0.9 but it was reversing a lot
         self.WHEELBASE_LENGTH = 0.325 # FILL IN # Need to check this number
@@ -64,17 +75,19 @@ class PurePursuit(Node):
 
         # -- Initialized vars --
         # Car odometry
-        self.x = None
-        self.y = None
-        self.theta = None
+        self.x, self.y, self.theta = None, None, None 
         self.initialized_traj = False
         self.path = None
         self.trajectory = LineTrajectory(self, "/followed_trajectory")
         self.last_closest_idx = 0
+        
+        # Initialization for drive cmd to spin robot in a circle
+        self.spin_drive = AckermannDrive()
+        self.spin_drive.speed = 0.5
+        self.spin_drive.steering_angle = self.MAX_STEERING_ANGLE
 
-        timer_rate = 15
-        self.create_timer(1/timer_rate, self.timer_callback)
-        self.get_logger().info("Ready to follow!")
+
+        self.get_logger().info("===== Trajectory follower ready =====")
 
     def pose_callback(self, odometry_msg):
         """
@@ -142,52 +155,44 @@ class PurePursuit(Node):
 
         self.get_logger().info(f'\n***New Path Recieved: {len(new_path)} points ***')
 
-    def timer_callback(self):
+    def drive_timer_callback(self):
         """
         Timer callback to generate new Drive command by pure pursuit using the cached pose.
         """
-        # check that we only look to move when we have a trajectory and a pose estimate
-        if not self.initialized_traj or self.x is None or self.y is None or self.theta is None:
-            return
+        # Message initializations
         drive_cmd = AckermannDriveStamped()
-        # self.get_logger().info(f'New Drive Command')
-
         header = Header()
         stamp = self.get_clock().now().to_msg()
         header.stamp = stamp
-        header.frame_id = 'base_link' # is this still true?
+        header.frame_id = 'base_link'
         drive_cmd.header = header
-
-        # Generate path -- this is now in the self.trajectory?
-        # path = self.generate_hermite_path(self.relative_x, self.relative_y)
-        # self.get_logger().info(f'Path: {path[0]}')
-        # TODO: Decide how we turn given traj into a path we want to use
-        path = self.path # this is turned into (num_points, 2) array in the path initialization
-
-        # visualize path -- should now be visualized with the other visualization tools,
-        # since the path is not dynamic, we should also do this once at the beginning.
-
-        # goal_dist = np.sqrt(self.relative_x**2 + self.relative_y**2)
-
-
-        # self.LOOKAHEAD = max(0.3, min(1.2, 0.5 * goal_dist))
-        # self.get_logger().info(f'{self.LOOKAHEAD=}')
+        
+        # check that we only look to move when we have a trajectory and a pose estimate
+        if not self.initialized_traj or self.x is None or self.y is None or self.theta is None:
+            return
 
         # Get the lookahead target point (in map frame)
         target_point, traj_vector = self.get_lookahead_point_traj_vector(self.path)
+        
+        # Visualize the target point
         VisualizationTools.draw_sphere(target_point[0], target_point[1], self.target_pub, stamp, frame="/map", color=(0.5, 0.0, 0.5), scale=(0.3, 0.3, 0.3))
 
         # Use the target point to update the drive command using our implementation of pure pursuit
         pure_pursuit_drive_cmd = self.update_control(target_point, traj_vector)
-
         # Update the command msg
         drive_cmd.drive = pure_pursuit_drive_cmd
-        #################################
 
         # publish the drive command instead of saving it
-        # self.drive_cmd = drive_cmd
-        # self.get_logger().info(f'Drive command sent: {drive_cmd.drive.speed} to {self.drive_topic}')
         self.drive_pub.publish(drive_cmd)
+        
+    def robot_spin_timer_callback(self):
+        """
+        Updates drive command to spin the robot in a circle.
+        """
+        # Invert the drive speed and steering angle to switch between moving forward and backward
+        # With the correct timer rate, achieves a spinning motion on the robot
+        self.spin_drive.speed = -self.spin_drive.speed
+        self.spin_drive.steering_angle = -self.spin_drive.steering_angle            
 
     def get_lookahead_point_traj_vector(self, path):
         """
@@ -254,18 +259,17 @@ class PurePursuit(Node):
             ))
             return drive
 
-
-        # Check to see if we are too close
-        # TODO: make relative_x and relative_y be the end point in the base_link frame (done in path initialization)
-        # TODO: this should calculate the distance from self.x and self.y to the end point
+        # Check to see if we are too close to the goal
         goal_dist = np.sqrt((self.end_x - self.x)**2 + (self.end_y - self.y)**2)
 
-        # if we are in the stopping range and pointed at the cone, it's okay
-        # if goal_dist < self.parking_distance_max land goal_dist > self.parking_distance_min and self.pointed_at_cone():
+        # if we are in the stopping range of the end of the trajectory,
         if goal_dist < self.EPSILON:
-            drive.speed = 0.0
-            drive.steering_angle = 0.0
+            # Don't send drive cmd of 0. Instead, look around for the parking meter
+            # Once we see the parking meter, parking controller (on a higher priority) will override this spinning behavior
+            # self.spin_drive is updated on a timer by robot_spin_timer_callback
+            drive = self.spin_drive
             return drive
+
 
         # calculate with the pure pursuit
         robot_pos = np.array([self.x, self.y])
