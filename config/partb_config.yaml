@@ -23,6 +23,12 @@ trajectory_follower_node:
     odom_topic: "/pf/pose/odom"
     drive_topic: "/vesc/high_level/input/nav_2"
 
+    max_steering_angle: 0.34
+    speed: 0.7
+    lookahead: 0.8
+    error_epsilon: 1.0
+    discretization_length: 0.1
+
 yolo_detection_node:
   ros__parameters:
     traffic_light_topic: "/traffic_light"
@@ -31,21 +37,43 @@ yolo_detection_node:
     person_point_px_topic: "/person_point_px"
     camera_topic: "/zed/zed_node/rgb/image_rect_color"
 
+    conf_threshold: 0.6
+    iou_threshold: 0.7
+
 traffic_light_node:
   ros__parameters:
     tl_drive_topic: "/vesc/high_level/input/nav_0" # Publishes drive commands to car
     tl_point_topic: "/tl_relative_point"
     traffic_light_topic: "/traffic_light" # Subscribes to the detected traffic light image topic
+    
     distance_threshold: 3.0
+    logger_rate: 2.0
 
 parking_meter_node:
   ros__parameters:
     pm_drive_topic: "/vesc/high_level/input/nav_1"
-    parking_meter_loc_topic: "/pm_relative_point"
-    parking_meter_img_topic: "/yolo/annotated_image"
-    location_topic: "/pf/pose/odom"
+    pm_point_topic: "/pm_relative_point"
+    pm_img_topic: "/yolo/annotated_image"
+    odom_topic: "/pf/pose/odom"
+    pc_drive_topic: "/pc_drive"
+    pc_point_topic: "/pc_relative_point"
+    pm_status_topic: "/pm_status"
 
 parking_controller:
   ros__parameters:
-    drive_topic: "/vesc/high_level/input/nav_1"
-    detection_mode: "cone"
+    drive_topic: "/pc_drive"
+    goal_topic: "/?"
+    path_marker_topic: "/pc_path"
+    parking_error_topic: "/parking_error"
+
+    car_length: 0.325
+    max_steering_angle: 0.34
+    velocity: 0.5
+    lookahead: 0.8
+    error_epsilon: 0.05
+    parking_distance_min: 0.75
+    parking_distance_max: 1.10
+    steering_angle_thresh: 1.2
+
+
+

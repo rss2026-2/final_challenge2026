@@ -27,36 +27,36 @@ class ParkingMeter(Node):
         # -- Declared parameters --
         self.declare_parameter('pm_drive_topic', '/vesc/high_level/input/nav_1')
         self.declare_parameter('pm_point_topic', '/pm_relative_point')
-        self.declare_parameter('annotated_img_topic', '/yolo/annotated_image')
-        self.declare_parameter('location_topic', '/pf/pose/odom')
+        self.declare_parameter('pm_img_topic', '/yolo/annotated_image')
+        self.declare_parameter('odom_topic', '/pf/pose/odom')
+        self.declare_parameter('pc_drive_topic', '/pc_drive')
+        self.declare_parameter('pc_point_topic', '/pc_relative_point')
+        self.declare_parameter('pm_status_topic', '/pm_status')
 
         self.pm_drive_topic = self.get_parameter('pm_drive_topic').value
-        self.parking_meter_loc_topic = self.get_parameter('pm_point_topic').value
-        self.parking_meter_img_topic = self.get_parameter('annotated_img_topic').value
-        self.location_topic = self.get_parameter('location_topic').value
-
+        self.pm_point_topic = self.get_parameter('pm_point_topic').value
+        self.pm_img_topic = self.get_parameter('pm_img_topic').value
+        self.odom_topic = self.get_parameter('odom_topic').value
+        self.pc_drive_topic = self.get_paramter('pc_drive_topic').value
+        self.pc_point_topic = self.get_parameter('pc_relative_point').value
+        self.pm_status_topic = self.get_parameter('pm_status_topic').value
 
         # -- Publishers and subscribers --
         # listen to the annotated image that we would like to save
-        self.parking_meter_img_sub = self.create_subscription(Image, self.parking_meter_img_topic, self.parking_meter_img_callback, 1)
-        self.parking_meter_loc_sub = self.create_subscription(Point, self.parking_meter_loc_topic, self.parking_meter_loc_callback, 1)
-        # TODO: ^ check what is being returned here
-        self.location_sub = self.create_subscription(Odometry, self.location_topic, self.location_callback, 1)
-
-        # self.pm_drive_pub = self.create_publisher(AckermannDriveStamped, self.pm_drive_topic, 10) # the parking controller node will publish the drive command to this topic, we will listen to see if we are parked
-        self.pm_drive_sub = self.create_subscription(AckermannDriveStamped, self.pm_drive_topic, self.pc_drive_callback, 1)
-        # TODO: update thelaunch to include parking controller with the proper topics
+        self.pm_img_sub = self.create_subscription(Image, self.pm_img_topic, self.pm_img_callback, 1)
+        self.pm_point_sub = self.create_subscription(Point, self.pm_point_topic, self.pm_point_callback, 1)
+        self.odom_sub = self.create_subscription(Odometry, self.odom_topic, self.location_callback, 1)
+        # the parking controller node will publish the drive command to this topic, we will listen to see if we are parked
+        self.pc_drive_sub = self.create_subscription(AckermannDriveStamped, self.pc_drive_topic, self.pc_drive_callback, 1)        
 
         # for getting the steering to the cone
-        self.meter_location_pub = self.create_publisher(ConeLocation, "/relative_cone", 10) # triggers parking controller node
-
-        self.status_updates_pub = self.create_publisher(String, '/parking_meter_status_updates', 10) # publishes what state we are in
-
+        self.pc_point_pub = self.create_publisher(ConeLocation, self.pc_point_topic, 10) # triggers parking controller node
+        self.pm_status_pub = self.create_publisher(String, self.pm_status_topic, 10) # publishes what state we are in
         self.visualize_meter_pub = self.create_publisher(Marker, '/meter_location', 10)
 
-        self.create_timer(1/25, self.update_drive_command_callback) # timer callback to call the parking controller...which in turn triggers the rest of the logic
+        self.create_timer(1/25, self.pm_drive_timer_callback) # timer callback to call the parking controller...which in turn triggers the rest of the logic
+        
         # -- Initialized variables --
-
         # Variable for cached parking meters to ignore
         self.parked_locations = None
         self.current_parking_meter_locations = []
@@ -72,27 +72,11 @@ class ParkingMeter(Node):
 
         self.get_logger().info("=== Parking Meter Initialized ===")
 
-    def parking_meter_loc_callback(self, msg):
+    def pm_drive_timer_callback(self):
         """
-        Handles parking meter behavior when we see one
+        Timer callback to update the drive command of the parking meter mux.
         """
-        if self.location is None:
-            self.get_logger().info('No Localization')
-            return
-        # TODO: perform homography on parking meter
-        self.goal_x, self.goal_y = self.extract_meter_location(msg)
-        self.goal_vec_world_frame = self.vec_in_world_frame(self.goal_x, self.goal_y)
-        VisualizationTools.draw_cylinder(self.goal_vec_world_frame[0], self.goal_vec_world_frame[1], self.visualize_meter_pub, self.get_clock().now().to_msg(), 'map', color=(0.5, 1.0, 1.0))
-
-
-
-
-        # TODO: check cache to ensure we haven't already parked here
-        # TODO: check to ensure that we are within parking_start_distance away to switch from following to parking
-
-
-    def update_drive_command_callback(self):
-
+        
         if self.goal_x is None or self.goal_y is None or self.goal_vec_world_frame is None:
             return
         distance_to_point = np.linalg.norm([self.goal_x, self.goal_y])
@@ -101,8 +85,6 @@ class ParkingMeter(Node):
         if already_parked_here or distance_to_point > self.parking_start_distance:
             # we don't have a different drive command to send, we should just listen to the follower
             return
-
-
 
         # TODO: park at the meter
         if not self.currently_parked:
@@ -119,19 +101,32 @@ class ParkingMeter(Node):
 
                 self.current_parking_meter_locations.append(self.goal_vec_world_frame)
             # will average and save all of the locations for this parking meter later
+    
+    def pm_point_callback(self, msg):
+        """
+        Callback function that runs when receiving parking meter point in world frame.
+        Caches parking meter location for use in the timer callback function.
+        Done this way so that we don't have to rely on laggy YOLO detections to update drive cmd
+        """
+        if self.location is None:
+            self.get_logger().info('No Localization')
+            return
 
-        # TODO: take a picture - done in it's own callback
+        # Get the meter location from the given relative point
+        self.goal_x, self.goal_y = self.extract_meter_location(msg)
+        
+        self.goal_vec_world_frame = self.vec_in_world_frame(self.goal_x, self.goal_y)
+        VisualizationTools.draw_cylinder(self.goal_vec_world_frame[0], self.goal_vec_world_frame[1], self.visualize_meter_pub, self.get_clock().now().to_msg(), 'map', color=(0.5, 1.0, 1.0))
 
-        # TODO: wait 5sec - evaluated each time we get a drive command
-
-        # TODO: stop sending zero drive command and cache parking meter to ignore it - done in it's own callback
-
-
-
+        # TODO: check cache to ensure we haven't already parked here
+        # TODO: check to ensure that we are within parking_start_distance away to switch from following to parking
 
     def pc_drive_callback(self, drive_msg):
-        """Listens to the AckermannDriveStamped message from the parking controller node (in visual servoing).
-           If we are parked, updates with that until we decide it is time to move again and saves the image. """
+        """
+        Intercept the AckermannDriveStamped message from the parking controller node (in visual servoing).
+        If we are parked, updates with that until we decide it is time to move again and saves the image. 
+        Otherwise pass through the message to the parking meter drive topic
+        """
 
         velocity, time_stamp = drive_msg.drive.speed, drive_msg.header.stamp
         if abs(velocity) < 0.05: # if we have parked
@@ -150,15 +145,16 @@ class ParkingMeter(Node):
                     self.currently_parked = False
                     self.timestamp_of_last_park = None
                     self.update_parked_locations()
-
         else:
             # the drive command is still navigating to the point (just do that)
-            # TODO: maybe i need to publish this to the pm? or can cone parking just do that?
-            return
+            # Publish to the drive msg associated with parking meter
+            self.pm_drive_topic.publish(drive_msg)
 
 
-    def parking_meter_img_callback(self, img_msg):
-        """ If currently parked, caches the image if it hasn't already"""
+    def pm_img_callback(self, img_msg):
+        """ 
+        If currently parked, caches the image if it hasn't already
+        """
         if not self.currently_parked: # only save image if we are parked
             return
         # save the image
@@ -171,6 +167,9 @@ class ParkingMeter(Node):
             self.number_of_images_saved += 1
 
     def location_callback(self, msg):
+        """
+        Caches the odom msg, the current location of the car in the map.
+        """
         self.location = msg
 
     ##### HELPER FUNCTIONS #####
