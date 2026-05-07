@@ -116,10 +116,10 @@ class LineDetector(Node):
         if self.direction == "left":
             polygon = np.array(
                 [[
-                    (int(width * 0.1), int(height * 0.8)),
-                    (int(width * 0.95), int(height * 0.8)),
-                    (int(width * 0.90), int(height * 0.4)),
-                    (int(width * 0.2), int(height * 0.4)),
+                    (int(width * 0.1), int(height * 0.8)), # bottom left
+                    (int(width * 0.95), int(height * 0.8)), # bottom right
+                    (int(width * 0.90), int(height * 0.4)), # top right
+                    (int(width * 0.05), int(height * 0.4)), # top left -- tune this to see more left lanes
                 ]]
             )
         else:

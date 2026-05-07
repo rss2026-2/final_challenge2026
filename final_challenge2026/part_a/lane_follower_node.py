@@ -119,8 +119,12 @@ class LaneFollower(Node):
             lookahead_dist**2
         )
 
+        # # clamp the angle to prevent major oscillations
+        # if (delta >= 0 and delta <= 0.05) or (delta < 0 and delta >= -0.05):
+        #     self.last_delta = 0.0
+        #     return 0.0
         # clamp the angle so the car doesn't abruptly turn
-        if float(delta) >= 0.1 or float(delta) <= -0.1:
+        if float(delta) >= 0.08 or float(delta) <= -0.08:
             self.get_logger().info("WARNING: Car tried to turn abruptly.")
             return self.last_delta
 
