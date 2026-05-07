@@ -63,7 +63,7 @@ class YoloDetection(Node):
             .string_value
         )
         self.conf_threshold = (
-            self.declare_parameter("conf_threshold", 0.5)
+            self.declare_parameter("conf_threshold", 0.6)
             .get_parameter_value()
             .double_value
         )
@@ -107,7 +107,7 @@ class YoloDetection(Node):
         of available classes can be found in `self.model.names`.
         """
         return {
-            "person": (150 , 0, 150),
+            # "person": (150 , 0, 150),
             "parking meter": (255, 0, 0),
             "traffic light": (255, 104, 31)
         }
@@ -255,18 +255,23 @@ class YoloDetection(Node):
             if detection_name == 'parking meter':
                 publisher = self.pm_point_px_pub
             
-            elif detection_name == 'person':
-                publisher = self.person_point_px_pub
+            # elif detection_name == 'person':
+            #     publisher = self.person_point_px_pub
             
             elif detection_name == 'traffic light':
                 publisher = self.tl_point_px_pub
                 
                 # -- Special behavior to publish the cropped traffic light --
+                
+                # Infer the y at the bottom (0.45 0.55 ratio)
+                y_infer = int((0.45 * (det.y2 - det.y1) / 0.55) + det.y2)
+                pixel_msg.v = float(y_infer)
+                    
                 out_img = bgr_img.copy()  
 
                 # Crop the image to the bbox
                 assert det.x1 < det.x2 and det.y1 < det.y2, f"why is {det.x1=} < {det.x2=} or {det.y1=} < {det.y2=}?"
-                cropped_out_img = out_img[det.y1:det.y2, det.x1:det.x2]
+                cropped_out_img = out_img[det.y1:y_infer, det.x1:det.x2]
 
                 # Create the msg
                 cropped_img_msg = self.bridge.cv2_to_imgmsg(cropped_out_img, encoding="bgr8")
