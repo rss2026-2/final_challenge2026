@@ -28,7 +28,7 @@ trajectory_follower_node:
     odom_topic: "/pf/pose/odom"
     drive_topic: "/vesc/high_level/input/nav_2"
 
-    max_steering_angle: 0.40
+    max_steering_angle: 0.34
     speed: 0.65
     lookahead: 0.8
     error_epsilon: 0.4
@@ -72,7 +72,7 @@ parking_controller:
     parking_error_topic: "/parking_error"
 
     car_length: 0.325
-    max_steering_angle: 0.40
+    max_steering_angle: 0.34
     velocity: 0.5
     lookahead: 0.8
     error_epsilon: 0.05
