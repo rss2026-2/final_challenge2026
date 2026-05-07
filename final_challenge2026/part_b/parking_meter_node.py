@@ -10,6 +10,8 @@ from nav_msgs.msg import Odometry
 from ackermann_msgs.msg import AckermannDriveStamped
 from rclpy.time import Time
 from std_msgs.msg import String
+from visualization_msgs.msg import Marker
+from viz_utils.visualization_tools import VisualizationTools
 
 
 
@@ -49,6 +51,10 @@ class ParkingMeter(Node):
         self.meter_location_pub = self.create_publisher(ConeLocation, "/relative_cone", 10) # triggers parking controller node
 
         self.status_updates_pub = self.create_publisher(String, '/parking_meter_status_updates', 10) # publishes what state we are in
+
+        self.visualize_meter_pub = self.create_publisher(Marker, '/meter_location', 10)
+
+        self.create_timer(1/25, self.update_drive_command_callback) # timer callback to call the parking controller...which in turn triggers the rest of the logic
         # -- Initialized variables --
 
         # Variable for cached parking meters to ignore
@@ -62,7 +68,7 @@ class ParkingMeter(Node):
         self.number_of_images_saved = 0
         self.br = CvBridge() # used to save the images
         self.location = None # from localization, used to put parking meter in global frame
-
+        self.goal_x, self.goal_y = None, None
 
         self.get_logger().info("=== Parking Meter Initialized ===")
 
@@ -76,19 +82,31 @@ class ParkingMeter(Node):
         # TODO: perform homography on parking meter
         self.goal_x, self.goal_y = self.extract_meter_location(msg)
         self.goal_vec_world_frame = self.vec_in_world_frame(self.goal_x, self.goal_y)
-        distance_to_point = np.linalg.norm([self.goal_x, self.goal_y])
+        VisualizationTools.draw_cylinder(self.goal_vec_world_frame[0], self.goal_vec_world_frame[1], self.visualize_meter_pub, self.get_clock().now().to_msg(), 'map', color=(0.5, 1.0, 1.0))
+
+
 
 
         # TODO: check cache to ensure we haven't already parked here
         # TODO: check to ensure that we are within parking_start_distance away to switch from following to parking
+
+
+    def update_drive_command_callback(self):
+
+        if self.goal_x is None or self.goal_y is None or self.goal_vec_world_frame is None:
+            return
+        distance_to_point = np.linalg.norm([self.goal_x, self.goal_y])
+        # this probably should be here and not when we cache
         already_parked_here = self.already_parked_near_here(self.goal_vec_world_frame)
         if already_parked_here or distance_to_point > self.parking_start_distance:
             # we don't have a different drive command to send, we should just listen to the follower
             return
 
+
+
         # TODO: park at the meter
         if not self.currently_parked:
-            self.publish_status_update(f' tFound new cone location to driveo: {(self.goal_x, self.goal_y)}')
+            # self.publish_status_update(f' Found new cone location to drive to: {(self.goal_x, self.goal_y)}')
             # send the location to the cone parking
             relative_location = ConeLocation()
             relative_location.x_pos = self.goal_x
@@ -233,11 +251,7 @@ class ParkingMeter(Node):
         msg = String()
         msg.data = text
         self.status_updates_pub.publish(msg)
-<<<<<<< HEAD
-        # self.get_logger().info(f'Publishing: "{text}"') # can toggle logging verbosity with this
-=======
         self.get_logger().info(f'Publishing: "{text}"') # can toggle logging verbosity with this
->>>>>>> f6c6dad920fa839b59046c6770b9a4ae12e8531a
 
 def main(args=None):
     rclpy.init(args=args)
