@@ -29,7 +29,7 @@ class PurePursuit(Node):
         self.declare_parameter("speed", 0.7)
         self.declare_parameter("lookahead", 0.8)
         self.declare_parameter("error_epsilon", 1.0)
-        self.declare_parameter("discretization_length", 1.0)
+        self.declare_parameter("discretization_length", 0.1)
 
         # -- Assigning variables -- 
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
@@ -70,6 +70,7 @@ class PurePursuit(Node):
         self.initialized_traj = False
         self.path = None
         self.trajectory = LineTrajectory(self, "/followed_trajectory")
+        self.last_closest_idx = 0
 
         timer_rate = 25
         self.create_timer(1/timer_rate, self.timer_callback)
@@ -199,8 +200,13 @@ class PurePursuit(Node):
         # Calculate the squared distance between robot position and each point on the path
         dists = np.sum((path - robot_pos)**2, axis=1)
 
-        # Get the index of the closest point
-        closest_idx = np.argmin(dists)
+        # # Get the index of the closest point
+        # closest_idx = np.argmin(dists)
+        # Only search forward from last known position, never backwards
+        search_dists = dists.copy()
+        search_dists[:self.last_closest_idx] = np.inf
+        closest_idx = np.argmin(search_dists)
+        self.last_closest_idx = closest_idx  # ratchet forward only
 
         # Only consider values further along the path than the closest point
         future_points = path[closest_idx:]
