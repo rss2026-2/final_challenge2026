@@ -4,7 +4,7 @@ import rclpy
 from geometry_msgs.msg import PoseArray
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
-from .utils import LineTrajectory
+from final_challenge2026.part_b.utils import LineTrajectory
 
 # added:
 from visualization_msgs.msg import Marker
@@ -31,7 +31,7 @@ class PurePursuit(Node):
         self.declare_parameter("error_epsilon", 1.0)
         self.declare_parameter("discretization_length", 0.1)
 
-        # -- Assigning variables -- 
+        # -- Assigning variables --
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
         self.drive_topic = self.get_parameter('drive_topic').get_parameter_value().string_value
         # self.CAR_LENGTH = self.get_parameter('car_length').get_parameter_value().double_value # replaced with self.wheelbase_length
@@ -41,7 +41,7 @@ class PurePursuit(Node):
         self.EPSILON = self.get_parameter('error_epsilon').get_parameter_value().double_value
         self.DISCRETIZATION_LENGTH = self.get_parameter('discretization_length').get_parameter_value().double_value
 
-        # -- Publishers and subscribers -- 
+        # -- Publishers and subscribers --
         self.pose_sub = self.create_subscription(Odometry,
                                                  self.odom_topic,
                                                  self.pose_callback,
@@ -62,7 +62,7 @@ class PurePursuit(Node):
         self.WHEELBASE_LENGTH = 0.325 # FILL IN # Need to check this number
         self.LOOKAHEAD = 0.8 + 0.2 * self.SPEED
 
-        # -- Initialized vars -- 
+        # -- Initialized vars --
         # Car odometry
         self.x = None
         self.y = None
@@ -72,9 +72,9 @@ class PurePursuit(Node):
         self.trajectory = LineTrajectory(self, "/followed_trajectory")
         self.last_closest_idx = 0
 
-        timer_rate = 25
+        timer_rate = 15
         self.create_timer(1/timer_rate, self.timer_callback)
-        self.get_logger().info("Ready to follow!")        
+        self.get_logger().info("Ready to follow!")
 
     def pose_callback(self, odometry_msg):
         """
@@ -226,12 +226,12 @@ class PurePursuit(Node):
             if len(valid_points) > 1:
                 line_traj_vector = np.array(list(valid_points[1])) - np.array(list(valid_points[0]))
                 return np.array(list(valid_points[0])), line_traj_vector
-            
+
             return np.array(list(valid_points[0])), None
         # If there are no valid points,
         else:
             # Just return the last point in the path as a fallback
-            self.get_logger().info(f"No valid points > LOOKAHEAD to follow. Following last point")
+            # self.get_logger().info(f"No valid points > LOOKAHEAD to follow. Following last point")
             return np.array(list(path[-1])), None
 
     def update_control(self, target_point, traj_vector=None):
@@ -241,16 +241,18 @@ class PurePursuit(Node):
         drive = AckermannDrive()
 
         # -- Don't worry about reversing for now --
-        # # in the case that the cone is behind the car, can also be modified for when we don't see the car
-        # if self.relative_x < 0:
-        #     drive.speed = -0.5
-        #     # steer toward the cone while reversing
-        #     drive.steering_angle = float(np.clip(
-        #         -np.sign(self.relative_y) * self.MAX_STEERING_ANGLE * 0.6,
-        #         -self.MAX_STEERING_ANGLE,
-        #         self.MAX_STEERING_ANGLE
-        #     ))
-        #     return drive
+        # in the case that the cone is behind the car, can also be modified for when we don't see the car
+        goal_vector = self.world_to_vehicle(target_point)
+        if goal_vector[0] < 0:
+            self.get_logger().info(f'Reversing x:{goal_vector[0]}')
+            drive.speed = -0.5
+            # steer toward the cone while reversing
+            drive.steering_angle = float(np.clip(
+                -np.sign(goal_vector[1]) * self.MAX_STEERING_ANGLE * 0.6,
+                -self.MAX_STEERING_ANGLE,
+                self.MAX_STEERING_ANGLE
+            ))
+            return drive
 
 
         # Check to see if we are too close
@@ -268,13 +270,13 @@ class PurePursuit(Node):
         # calculate with the pure pursuit
         robot_pos = np.array([self.x, self.y])
         # goal_vector = target_point - robot_pos
-        goal_vector = self.world_to_vehicle(target_point)
+        # goal_vector = self.world_to_vehicle(target_point)
         new_steering_angle = self.compute_feedback_angle(goal_vector)
 
         # If the turn we have to make is too tight or the cone is cut off, or the cone is just plainly too close, reverse first
         turning_angle_too_tight = abs(new_steering_angle) > self.MAX_STEERING_ANGLE * self.STEERING_ANGLE_THRESH
-        cone_too_close = goal_dist < self.EPSILON
-        if turning_angle_too_tight or cone_too_close:
+        if turning_angle_too_tight:
+            self.get_logger().info(f'Reversing turining angle:{new_steering_angle }> {self.MAX_STEERING_ANGLE * self.STEERING_ANGLE_THRESH}')
             drive.speed = -0.5
             reverse_angle = -0.5 * new_steering_angle
             drive.steering_angle = float(np.clip(reverse_angle,
@@ -308,10 +310,10 @@ class PurePursuit(Node):
         """
         Return speed based on how close it is to the goal
         """
-        
+
         if traj_vector is not None:
             traj_vector_norm = traj_vector / np.linalg.norm(traj_vector)
-            
+
             cos_theta = np.dot(traj_vector_norm, np.array([1.0,0.0]))
 
             angle = np.abs(np.arccos(np.clip(cos_theta, -1.0, 1.0)))

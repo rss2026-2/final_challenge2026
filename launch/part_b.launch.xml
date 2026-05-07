@@ -1,7 +1,8 @@
 <launch>
 
-    <!-- <node pkg="safety_controller" name="controller" exec="controller" output="screen">
-    </node> -->
+    <node pkg="safety_controller" name="controller" exec="controller" output="screen">
+        <param from="$(find-pkg-share final_challenge2026)/config/partb_config.yaml"/>
+    </node>
 
     <node pkg="final_challenge2026" name="homography_transformer_b" exec="homography_transformer_b" output="screen">
         <param from="$(find-pkg-share final_challenge2026)/config/partb_config.yaml"/>

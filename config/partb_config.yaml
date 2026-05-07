@@ -1,3 +1,8 @@
+safety_controller:
+  ros__parameters:
+    safety_radius: 0.25
+    safety_controller_const: 0.4
+
 homography_transformer:
   ros__parameters:
     # Point homography topics
@@ -23,10 +28,10 @@ trajectory_follower_node:
     odom_topic: "/pf/pose/odom"
     drive_topic: "/vesc/high_level/input/nav_2"
 
-    max_steering_angle: 0.34
-    speed: 0.7
+    max_steering_angle: 0.40
+    speed: 0.65
     lookahead: 0.8
-    error_epsilon: 1.0
+    error_epsilon: 0.4
     discretization_length: 0.1
 
 yolo_detection_node:
@@ -46,8 +51,8 @@ traffic_light_node:
     tl_point_topic: "/tl_relative_point"
     traffic_light_topic: "/traffic_light" # Subscribes to the detected traffic light image topic
     
-    distance_threshold: 3.0
-    logger_rate: 2.0
+    distance_threshold: 10.0
+    logger_rate: 100.0
 
 parking_meter_node:
   ros__parameters:
@@ -67,13 +72,10 @@ parking_controller:
     parking_error_topic: "/parking_error"
 
     car_length: 0.325
-    max_steering_angle: 0.34
+    max_steering_angle: 0.40
     velocity: 0.5
     lookahead: 0.8
     error_epsilon: 0.05
     parking_distance_min: 0.75
     parking_distance_max: 1.10
     steering_angle_thresh: 1.2
-
-
-

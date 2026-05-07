@@ -2,7 +2,7 @@ import rclpy
 
 from geometry_msgs.msg import PoseArray, PoseStamped, Point, PointStamped
 from nav_msgs.msg import OccupancyGrid, Odometry
-from part_b.utils import LineTrajectory
+from final_challenge2026.part_b.utils import LineTrajectory
 from rclpy.node import Node
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
@@ -28,7 +28,7 @@ class PathPlan(Node):
         self.declare_parameter('safety_cell_radius', 5)
         self.declare_parameter('max_step_size', 5)
         self.declare_parameter('a_star_weights', [1.0,1.0,-1.0,-5.0])
-        
+
 
         #seperate trajectory publishers for path comparison
         self.declare_parameter('viz_namespace', "/planned_trajectory")
@@ -48,7 +48,7 @@ class PathPlan(Node):
         self.viz_traj_color = self.get_parameter("viz_traj_color").get_parameter_value().double_array_value
         self.publish_path = self.get_parameter('publish_path').get_parameter_value().bool_value
         self.path_topic = self.get_parameter("path_topic").get_parameter_value().string_value
-    
+
 
         self.map_sub = self.create_subscription(OccupancyGrid, self.map_topic, self.map_cb, 1)
         self.goal_sub = self.create_subscription(PointStamped, self.points_topic, self.goal_cb, 10)
@@ -103,7 +103,7 @@ class PathPlan(Node):
         occupancy_grid = np.array(map_msg.data).reshape(map_msg.info.height, map_msg.info.width)
 
         self.map_occupancy_expansion(occupancy_grid, self.safety_cell_radius)
-   
+
         binary_map = (occupancy_grid == 0).astype(np.uint8)
         self.dist_map = np.array(cv2.distanceTransform(binary_map, cv2.DIST_L2, 5))
 
@@ -122,10 +122,10 @@ class PathPlan(Node):
         """
         Converts the occupancy grid to a binary map based on a probability threshold,
         then expands the boundaries by a certain radius.
-        
+
         Args:
             grid (nd array): A numpy 2D array representing the occupancy grid whose
-            values are integers from 0-100 representing the probability of being occupied. 
+            values are integers from 0-100 representing the probability of being occupied.
             -1 is unknown.
             radius (int): The number of cells with which to expand boundaries.
             prob_thresh (float): Used to convert to binary map.
@@ -187,7 +187,7 @@ class PathPlan(Node):
             self.initial_point = start_point
 
         else:
-            start_point = self.paths[-2][-1]
+            start_point = self.paths[-1][-1] # switched to -1 from -2
             self.paths.pop(-1)
 
         # end_point = (goal_pose.position.x, goal_pose.position.y)
@@ -207,7 +207,7 @@ class PathPlan(Node):
         if path_to_new_goal is None: # or path_to_start is None:
             self.get_logger().info("No path found")
             return
-        
+
         self.paths.append(path_to_new_goal)
         # self.paths.append(path_to_start)
 
@@ -222,12 +222,12 @@ class PathPlan(Node):
 
         self.trajectory.publish_viz(traj_color = self.viz_traj_color)
         self.get_logger().info("Path Visualized!")
-    
-            
-    
+
+
+
     def find_valid_neighbors(self, curr_cell, step_size):
         """
-        Finds the valid unseen neighbors of the given current cell. The step size is bounded 
+        Finds the valid unseen neighbors of the given current cell. The step size is bounded
         by the given max_step_size and the distance to the end_cell (prevents overshooting).
 
         Args:
@@ -245,9 +245,9 @@ class PathPlan(Node):
             if 0 <= n_cell[0] < map_w and 0 <= n_cell[1] < map_h: #if the cell is within bounds
                 if self.map["array"][n_cell[1]][n_cell[0]] == 0:
                     neighbors.append(n_cell)
-        
+
         return neighbors
-    
+
     def plan_path(self, start_point, end_point, visualize = False):
         """
         Given a start and end cell, uses A* search to find a path between these
@@ -277,7 +277,7 @@ class PathPlan(Node):
             (start_cell,) # path
         )
         heapq.heappush(queue, start_item)
-        
+
         if visualize:
             self.clear_points()
 
@@ -292,7 +292,7 @@ class PathPlan(Node):
             if visualize and len(curr_path) >= 2:
                 prev_cell = curr_path[-2]
                 prev_point, curr_point = self.grid_to_real_frame([prev_cell, curr_cell])
-                
+
                 edges.append((prev_point, curr_point))
                 # Publish incrementally to show tree expansion over time
                 self.publish_edges(edges)
@@ -307,14 +307,14 @@ class PathPlan(Node):
             for neighbor in self.find_valid_neighbors(curr_cell, step_size):
                 new_path = curr_path + (neighbor,)
                 heapq.heappush(queue, self.calculate_new_cost(new_path, end_cell, curr_path_cost, avg_clearance, min_clearance))
-        
+
         if found_path is None:
             return
-        
+
         real_path = self.grid_to_real_frame(found_path)
 
         return real_path
-    
+
     def calculate_new_cost(self, new_path, end_cell, curr_path_cost, curr_avg_clearance, curr_min_clearance):
         """
         Updates the A* cost of a new path
@@ -322,7 +322,7 @@ class PathPlan(Node):
         curr_cell = new_path[-2]
         next_cell = new_path[-1]
         curr_clearance = self.dist_map[next_cell[1],next_cell[0]]
-        
+
         # Path cost is the sum of the pairwise distances between cells in the path
         new_path_cost = curr_path_cost + math.dist(curr_cell, next_cell)
 
@@ -340,7 +340,7 @@ class PathPlan(Node):
         total_cost = np.dot(costs_arr, self.a_star_weights)
 
         return (total_cost, new_path_cost, new_avg_clearance, new_min_clearance, new_path)
-    
+
     def publish_edges(self, edges):
         """
         Publish all accumulated edges as a single connected marker.
@@ -374,11 +374,11 @@ class PathPlan(Node):
         marker.color = ColorRGBA(r=0.0, g=0.0, b=1.0, a=1.0)
         marker.scale.x = 0.02  # Line width in meters
         marker.scale.z = 0.0
-        
+
         marker_arr = MarkerArray()
         marker_arr.markers.append(marker)
         self.search_pub.publish(marker_arr)
-    
+
     def clear_points(self):
         """
         Clears the drawing of the search algorithm
@@ -411,7 +411,7 @@ class PathPlan(Node):
             if new_heading != curr_heading:
                 new_cell_path.append(prev_cell)
                 curr_heading = new_heading
-        
+
         if new_cell_path[-1] != cell_path[-1]:
             new_cell_path.append(cell_path[-1])
         return new_cell_path
@@ -428,7 +428,7 @@ class PathPlan(Node):
         points = (self.map["transform"] @ cells.T).T
 
         return np.array([[px,py] for px,py,_,_ in points])
-    
+
     def real_to_grid_frame(self, points):
         """
         Converts a list of pixels to their cell locations in the occupancy grid

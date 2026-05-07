@@ -25,7 +25,7 @@ class ParkingController(Node):
 
         # -- Declared parameters --
         self.declare_parameter("drive_topic", "/pc_drive")
-        self.declare_parameter("point", "/pc_relative_point")
+        self.declare_parameter("point_topic", "/pc_relative_point")
         self.declare_parameter("path_marker_topic", "/pc_path")
         self.declare_parameter("parking_error_topic", "/parking_error")
         

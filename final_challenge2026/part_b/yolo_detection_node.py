@@ -3,6 +3,7 @@
 import cv2
 import numpy as np
 import rclpy
+import torch
 
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
@@ -63,7 +64,7 @@ class YoloDetection(Node):
             .string_value
         )
         self.conf_threshold = (
-            self.declare_parameter("conf_threshold", 0.6)
+            self.declare_parameter("conf_threshold", 0.4)
             .get_parameter_value()
             .double_value
         )
@@ -73,9 +74,10 @@ class YoloDetection(Node):
             .double_value
         )
 
-        self.device = "cpu"
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"        
         self.model = YOLO(self.model_name)
         self.model.to(self.device)
+        self.get_logger().info(f'{self.device=}')
 
         self.class_color_map = self.get_class_color_map()
         self.allowed_cls = [
@@ -228,7 +230,7 @@ class YoloDetection(Node):
             
         return out_image
 
-    ###############    
+    ###############
     # Added function for final challenge
     def publish_detections(self, bgr_img, detections, header):
         """
@@ -266,18 +268,19 @@ class YoloDetection(Node):
                 # Infer the y at the bottom (0.45 0.55 ratio)
                 y_infer = int((0.45 * (det.y2 - det.y1) / 0.55) + det.y2)
                 pixel_msg.v = float(y_infer)
-                    
-                out_img = bgr_img.copy()  
+
+                # out_img = bgr_img.copy() # maybe we don't need this because we slice
 
                 # Crop the image to the bbox
                 assert det.x1 < det.x2 and det.y1 < det.y2, f"why is {det.x1=} < {det.x2=} or {det.y1=} < {det.y2=}?"
-                cropped_out_img = out_img[det.y1:y_infer, det.x1:det.x2]
+                cropped_out_img = bgr_img[det.y1:y_infer, det.x1:det.x2] # slice bgr to not copy it twice 
 
                 # Create the msg
                 cropped_img_msg = self.bridge.cv2_to_imgmsg(cropped_out_img, encoding="bgr8")
                 cropped_img_msg.header = header
 
                 # Publish the msg
+                self.get_logger().info(f'Publishing traffic light: {y_infer}')
                 self.traffic_light_pub.publish(cropped_img_msg)
 
             else:
@@ -286,7 +289,7 @@ class YoloDetection(Node):
         
             publisher.publish(pixel_msg)
             # self.get_logger().info(f'published {detection_name} detection to its respective topic')
-    ###############    
+    ###############
 
 
 def main() -> None:

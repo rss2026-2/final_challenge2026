@@ -37,8 +37,8 @@ class ParkingMeter(Node):
         self.pm_point_topic = self.get_parameter('pm_point_topic').value
         self.pm_img_topic = self.get_parameter('pm_img_topic').value
         self.odom_topic = self.get_parameter('odom_topic').value
-        self.pc_drive_topic = self.get_paramter('pc_drive_topic').value
-        self.pc_point_topic = self.get_parameter('pc_relative_point').value
+        self.pc_drive_topic = self.get_parameter('pc_drive_topic').value
+        self.pc_point_topic = self.get_parameter('pc_point_topic').value
         self.pm_status_topic = self.get_parameter('pm_status_topic').value
 
         # -- Publishers and subscribers --
@@ -47,7 +47,7 @@ class ParkingMeter(Node):
         self.pm_point_sub = self.create_subscription(Point, self.pm_point_topic, self.pm_point_callback, 1)
         self.odom_sub = self.create_subscription(Odometry, self.odom_topic, self.location_callback, 1)
         # the parking controller node will publish the drive command to this topic, we will listen to see if we are parked
-        self.pc_drive_sub = self.create_subscription(AckermannDriveStamped, self.pc_drive_topic, self.pc_drive_callback, 1)        
+        self.pc_drive_sub = self.create_subscription(AckermannDriveStamped, self.pc_drive_topic, self.pc_drive_callback, 1)
 
         # for getting the steering to the cone
         self.pc_point_pub = self.create_publisher(ConeLocation, self.pc_point_topic, 10) # triggers parking controller node
@@ -55,7 +55,7 @@ class ParkingMeter(Node):
         self.visualize_meter_pub = self.create_publisher(Marker, '/meter_location', 10)
 
         self.create_timer(1/25, self.pm_drive_timer_callback) # timer callback to call the parking controller...which in turn triggers the rest of the logic
-        
+
         # -- Initialized variables --
         # Variable for cached parking meters to ignore
         self.parked_locations = None
@@ -76,7 +76,7 @@ class ParkingMeter(Node):
         """
         Timer callback to update the drive command of the parking meter mux.
         """
-        
+
         if self.goal_x is None or self.goal_y is None or self.goal_vec_world_frame is None:
             return
         distance_to_point = np.linalg.norm([self.goal_x, self.goal_y])
@@ -101,7 +101,7 @@ class ParkingMeter(Node):
 
                 self.current_parking_meter_locations.append(self.goal_vec_world_frame)
             # will average and save all of the locations for this parking meter later
-    
+
     def pm_point_callback(self, msg):
         """
         Callback function that runs when receiving parking meter point in world frame.
@@ -114,7 +114,7 @@ class ParkingMeter(Node):
 
         # Get the meter location from the given relative point
         self.goal_x, self.goal_y = self.extract_meter_location(msg)
-        
+
         self.goal_vec_world_frame = self.vec_in_world_frame(self.goal_x, self.goal_y)
         VisualizationTools.draw_cylinder(self.goal_vec_world_frame[0], self.goal_vec_world_frame[1], self.visualize_meter_pub, self.get_clock().now().to_msg(), 'map', color=(0.5, 1.0, 1.0))
 
@@ -124,7 +124,7 @@ class ParkingMeter(Node):
     def pc_drive_callback(self, drive_msg):
         """
         Intercept the AckermannDriveStamped message from the parking controller node (in visual servoing).
-        If we are parked, updates with that until we decide it is time to move again and saves the image. 
+        If we are parked, updates with that until we decide it is time to move again and saves the image.
         Otherwise pass through the message to the parking meter drive topic
         """
 
@@ -152,7 +152,7 @@ class ParkingMeter(Node):
 
 
     def pm_img_callback(self, img_msg):
-        """ 
+        """
         If currently parked, caches the image if it hasn't already
         """
         if not self.currently_parked: # only save image if we are parked
@@ -161,8 +161,9 @@ class ParkingMeter(Node):
         if self.number_of_images_saved < self.number_of_times_parked:
             # TODO: Check that the bounding box is saved there
             # save the image and name it with the current number
+            time = self.get_clock().time_stamp().to_msg()
             current_frame = self.br.imgmsg_to_cv2(img_msg)
-            cv2.imwrite(f'image_{self.number_of_images_saved}.jpg', current_frame)
+            cv2.imwrite(f'image_{self.number_of_images_saved}_{self.time}.jpg', current_frame)
             self.get_logger().info('Saving image ')
             self.number_of_images_saved += 1
 
