@@ -21,6 +21,7 @@
     </node>
 
     <node pkg="final_challenge2026" name="yolo_detection_node" exec="yolo_detection" output="screen">
+        <param from="$(find-pkg-share final_challenge2026)/config/partb_config.yaml"/>
     </node>
 
     <node pkg="final_challenge2026" name="traffic_light_node" exec="traffic_light" output="screen">
@@ -32,8 +33,7 @@
     </node>
 
     <node pkg="final_challenge2026" name="parking_controller" exec="parking_controller" output="screen">
-        <param name="drive_topic" value="/vesc/high_level/input/nav_1" />
-        <param name="detection_mode" value="line" />
+        <param from="$(find-pkg-share final_challenge2026)/config/partb_config.yaml"/>
     </node>
 
 </launch>

@@ -30,8 +30,9 @@ trajectory_follower_node:
 
     max_steering_angle: 0.34
     speed: 0.65
-    lookahead: 0.8
-    error_epsilon: 0.4
+    lookahead: 0.5
+    error_epsilon: 0.15
+    spin_epsilon: 0.85
     discretization_length: 0.1
 
 yolo_detection_node:
@@ -51,7 +52,7 @@ traffic_light_node:
     tl_point_topic: "/tl_relative_point"
     traffic_light_topic: "/traffic_light" # Subscribes to the detected traffic light image topic
     
-    distance_threshold: 10.0
+    distance_threshold: 5.0
     logger_rate: 100.0
 
 parking_meter_node:

@@ -93,7 +93,7 @@ class ParkingMeter(Node):
             relative_location = ConeLocation()
             relative_location.x_pos = self.goal_x
             relative_location.y_pos = self.goal_y
-            self.meter_location_pub.publish(relative_location) # publishes a drive command to whatever topic we tell it to
+            self.pc_point_pub.publish(relative_location) # publishes a drive command to whatever topic we tell it to
 
             # save the location we currently drove to
             # TODO: make sure to cache these in the world frame so I can average and cache

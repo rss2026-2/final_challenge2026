@@ -48,6 +48,8 @@ class ParkingController(Node):
         self.velocity = self.get_parameter('velocity').get_parameter_value().double_value
         self.lookahead = self.get_parameter('lookahead').get_parameter_value().double_value
         self.epsilon = self.get_parameter('error_epsilon').get_parameter_value().double_value
+        self.parking_distance_min = self.get_parameter('parking_distance_min').get_parameter_value().double_value
+        self.parking_distance_max = self.get_parameter('parking_distance_max').get_parameter_value().double_value
         self.steering_angle_thresh = self.get_parameter('steering_angle_thresh').get_parameter_value().double_value
 
         # -- Publishers and subscribers --
