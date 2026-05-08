@@ -31,8 +31,8 @@ class PurePursuit(Node):
         self.declare_parameter("error_epsilon", 1.0)
         self.declare_parameter("discretization_length", 0.1)
         
-        self.declare_parameter("drive_timer_rate", 15)
-        self.declare_parameter("spin_timer_rate", 2)
+        self.declare_parameter("drive_timer_rate", 15.0)
+        self.declare_parameter("spin_timer_rate", 2.0)
 
         # -- Assigning variables --
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
