@@ -5,7 +5,7 @@ from nav_msgs.msg import OccupancyGrid, Odometry
 from final_challenge2026.part_b.utils import LineTrajectory
 from rclpy.node import Node
 from visualization_msgs.msg import Marker, MarkerArray
-from std_msgs.msg import ColorRGBA
+from std_msgs.msg import ColorRGBA, Bool
 
 
 
@@ -22,6 +22,7 @@ class PathPlan(Node):
 
     def __init__(self):
         super().__init__("grid_search_planner")
+        # -- Declared Parameters --
         self.declare_parameter('odom_topic', "/odom")
         self.declare_parameter('map_topic', "/map")
         self.declare_parameter('points_topic', "/clicked_point")
@@ -29,13 +30,12 @@ class PathPlan(Node):
         self.declare_parameter('max_step_size', 5)
         self.declare_parameter('a_star_weights', [1.0,1.0,-1.0,-5.0])
 
-
         #seperate trajectory publishers for path comparison
         self.declare_parameter('viz_namespace', "/planned_trajectory")
         self.declare_parameter("viz_traj_color", [1.0,1.0,1.0,1.0])
         self.declare_parameter('publish_path', True)
         self.declare_parameter("path_topic", "/trajectory/current")
-
+        self.declare_parameter("parked_topic", "/parked")
 
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
         self.map_topic = self.get_parameter('map_topic').get_parameter_value().string_value
@@ -48,11 +48,13 @@ class PathPlan(Node):
         self.viz_traj_color = self.get_parameter("viz_traj_color").get_parameter_value().double_array_value
         self.publish_path = self.get_parameter('publish_path').get_parameter_value().bool_value
         self.path_topic = self.get_parameter("path_topic").get_parameter_value().string_value
+        self.parked_topic = self.get_parameter('parked_topic').get_parameter_value().bool_value
 
-
+        # -- Publishers and subscribers --
         self.map_sub = self.create_subscription(OccupancyGrid, self.map_topic, self.map_cb, 1)
         self.goal_sub = self.create_subscription(PointStamped, self.points_topic, self.goal_cb, 10)
         self.pose_sub = self.create_subscription(Odometry, self.odom_topic, self.pose_cb, 10)
+        self.parked_sub = self.create_subscription(Bool, self.parked_topic, self.parked_cb, 10) # subscribed to when parking status changes
 
         if self.publish_path:
             self.traj_pub = self.create_publisher(PoseArray, self.path_topic, 10)
@@ -60,6 +62,7 @@ class PathPlan(Node):
 
         self.search_pub = self.create_publisher(MarkerArray,"/search_alg",10)
 
+        # -- Initialized variables --
         self.trajectory = LineTrajectory(node=self, viz_namespace=self.viz_namespace)
         self.map = None
         self.dist_map = None
@@ -67,6 +70,8 @@ class PathPlan(Node):
 
         self.initial_point = None
         self.paths = []
+        self.goal_points = []
+        self.following_initialized = False
 
         self.get_logger().info("Awaiting Map")
 
@@ -179,37 +184,74 @@ class PathPlan(Node):
         if self.map is None:
             self.get_logger().info("Map Information Not Received")
             return
-
-        goal_point = goal_msg.point
-
-        if len(self.paths) == 0:
-            start_point = (self.pose["position"][0], self.pose["position"][1])
-            self.initial_point = start_point
-
+        
+        # Get the goal point clicked from the msg
+        goal_point = (goal_msg.point.x, goal_msg.point.y)
+        
+        # Check if we've already started following points
+        if self.following_initialized:
+            # Remove the last point in the goal point array if it exists, which will always be self.initial_point
+            # Done so we can always hit all goal points before returning back to the start (if we haven't already started returning to initial_point)
+            if len(self.goal_points) > 0:
+                self.goal_points.pop(-1)
+            # Add the current end point
+            self.goal_points.append(goal_point)
+            # Add the initial point back to the end of the array
+            self.goal_points.append(self.initial_point)
+            # We don't plan trajectory here because we're already relying on listening to /parked topic to plan the next trajectory, not the clicked_point cb
+            
+        # If we haven't started following points, don't worry about removing initial_point because we haven't added it to array yet
         else:
-            start_point = self.paths[-1][-1] # switched to -1 from -2
-            self.paths.pop(-1)
+            # Add goal point to list of end points
+            self.goal_points.append(goal_point)
+        
+            # If the number of goal points is less than 2, stop here
+            if len(self.goal_points) < 2:
+                return
+            
+            # Number of goal points is 2 or more, so we're ready to follow. Add the initial point as the last end point to the array
+            # Since no following has initialized we're at the initial point before we start following paths. Save this 
+            self.initial_point = (self.pose["position"][0], self.pose["position"][1])
+            self.end_points.append(self.initial_point)
+            # Begin the process of following paths
+            self.following_initialized = True
+            
+            # Call plan_trajectory which handles building the path. Future calls will rely on listening to /parked to plan trajectory
+            self.plan_trajectory()           
 
-        # end_point = (goal_pose.position.x, goal_pose.position.y)
-        end_point = (goal_point.x, goal_point.y)
+    def parked_cb(self, parked_msg):
+        """
+        Callback function that updates currently_parked when robot parks at parking meter.
+        Used for planning to the trajectory of the next cached clicked point.
+        """
+        currently_parked = parked_msg.data
+        # If currently_parked msg received was true, plan the next trajectory
+        if currently_parked:
+            self.plan_trajectory()
+        
+    def plan_trajectory(self):
+        """
+        Function handling behavior of planning a trajectory for the robot to follow.
+        """
+        # Always start path from robot position
+        start_point = (self.pose["position"][0], self.pose["position"][1])
+        # Get the first point in self.end_points, which is the next point to follow
+        end_point = self.end_points.pop(0)
 
+        # Plan path to new goal
         path_to_new_goal = self.plan_path(
             start_point = start_point,
             end_point = end_point,
             visualize = False
         )
 
-        # path_to_start = self.plan_path(
-        #     start_point = end_point,
-        #     end_point = self.initial_point
-        # )
-
-        if path_to_new_goal is None: # or path_to_start is None:
+        # Return no path found if no path to goal can be made
+        if path_to_new_goal is None:
             self.get_logger().info("No path found")
             return
 
+        # Generate, publish, and visualize path
         self.paths.append(path_to_new_goal)
-        # self.paths.append(path_to_start)
 
         self.trajectory.clear()
         self.trajectory.addPoints([point for path in self.paths for point in path])
@@ -222,8 +264,6 @@ class PathPlan(Node):
 
         self.trajectory.publish_viz(traj_color = self.viz_traj_color)
         self.get_logger().info("Path Visualized!")
-
-
 
     def find_valid_neighbors(self, curr_cell, step_size):
         """

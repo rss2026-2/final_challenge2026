@@ -9,7 +9,7 @@ from geometry_msgs.msg import Pose, Point
 from nav_msgs.msg import Odometry
 from ackermann_msgs.msg import AckermannDriveStamped
 from rclpy.time import Time
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from visualization_msgs.msg import Marker
 from viz_utils.visualization_tools import VisualizationTools
 
@@ -32,6 +32,7 @@ class ParkingMeter(Node):
         self.declare_parameter('pc_drive_topic', '/pc_drive')
         self.declare_parameter('pc_point_topic', '/pc_relative_point')
         self.declare_parameter('pm_status_topic', '/pm_status')
+        self.declare_parameter('parked_topic', '/parked')
 
         self.pm_drive_topic = self.get_parameter('pm_drive_topic').value
         self.pm_point_topic = self.get_parameter('pm_point_topic').value
@@ -40,6 +41,7 @@ class ParkingMeter(Node):
         self.pc_drive_topic = self.get_parameter('pc_drive_topic').value
         self.pc_point_topic = self.get_parameter('pc_point_topic').value
         self.pm_status_topic = self.get_parameter('pm_status_topic').value
+        self.parked_topic = self.get_parameter('parked_topic').get_parameter_value().bool_value
 
         # -- Publishers and subscribers --
         # listen to the annotated image that we would like to save
@@ -53,6 +55,8 @@ class ParkingMeter(Node):
         self.pc_point_pub = self.create_publisher(ConeLocation, self.pc_point_topic, 10) # triggers parking controller node
         self.pm_status_pub = self.create_publisher(String, self.pm_status_topic, 10) # publishes what state we are in
         self.visualize_meter_pub = self.create_publisher(Marker, '/meter_location', 10)
+        
+        self.parked_pub = self.create_publisher(Bool, self.parked_topic, 10) # publishes when parked status changes 
 
         self.create_timer(1/25, self.pm_drive_timer_callback) # timer callback to call the parking controller...which in turn triggers the rest of the logic
 
@@ -123,7 +127,7 @@ class ParkingMeter(Node):
 
     def pc_drive_callback(self, drive_msg):
         """
-        Intercept the AckermannDriveStamped message from the parking controller node (in visual servoing).
+        Intercept the AckermannDriveStamped message from the parking controller node.
         If we are parked, updates with that until we decide it is time to move again and saves the image.
         Otherwise pass through the message to the parking meter drive topic
         """
@@ -136,7 +140,11 @@ class ParkingMeter(Node):
                 self.currently_parked = True
                 self.timestamp_of_last_park = time_stamp
                 self.number_of_times_parked += 1
-            # save the image if it has not already been saved -- this is on it's own callback of the image
+                # save the image if it has not already been saved -- this is on it's own callback of the image
+                # publish to /parked topic so that path planner can update to next path that should be followed
+                parked_msg = Bool()
+                parked_msg.data = self.currently_parked
+                parked_pub.publish(parked_msg)
             else:
                 # check if it has been 5 seconds yet since this is not the first parking command we get
                 time_parked = self.get_parking_duration(time_stamp)
@@ -145,6 +153,10 @@ class ParkingMeter(Node):
                     self.currently_parked = False
                     self.timestamp_of_last_park = None
                     self.update_parked_locations()
+                    
+                    parked_msg = Bool()
+                    parked_msg.data = self.currently_parked
+                    parked_pub.publish(parked_msg)
         else:
             # the drive command is still navigating to the point (just do that)
             # Publish to the drive msg associated with parking meter
