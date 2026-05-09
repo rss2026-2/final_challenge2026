@@ -74,7 +74,7 @@ class YoloDetection(Node):
             .double_value
         )
 
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"        
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.model = YOLO(self.model_name)
         self.model.to(self.device)
         self.get_logger().info(f'{self.device=}')
@@ -98,7 +98,7 @@ class YoloDetection(Node):
             Image, self.camera_topic, self.on_image, 1)
         self.pub = self.create_publisher(
             Image, self.publish_topic, 10)
-        
+
         self.get_logger().info(f"=== YOLO Annotator Node Initialized ===")
 
     def get_class_color_map(self) -> dict[str, tuple[int, int, int]]:
@@ -201,7 +201,7 @@ class YoloDetection(Node):
             detections.append(det)
         return detections
 
-    
+
     # -- Added code to this function for final challenge --
     def draw_detections(
         self,
@@ -227,7 +227,7 @@ class YoloDetection(Node):
                         0.5, # font scale
                         self.class_color_map[det.class_name], # text color
                         2) # thickness
-            
+
         return out_image
 
     ###############
@@ -235,7 +235,7 @@ class YoloDetection(Node):
     def publish_detections(self, bgr_img, detections, header):
         """
         Publish detection to the correct topic for later behavior.
-        
+
         Args:
             bgr_img: The input image of the zed camera
             detections: The object containing detection information
@@ -243,37 +243,37 @@ class YoloDetection(Node):
         """
 
         for det in detections:
-            
+
             detection_name = det.class_name
-            
+
             # Define the location of the detection using the bottom-midpoint value
             x_mid = (det.x1 + det.x2)/2.0
             pixel_msg = ConeLocationPixel()
             pixel_msg.u = float(x_mid)
             pixel_msg.v = float(det.y2)
-                
+
             publisher = None
             # Use the correct publisher depending on what the detection is
             if detection_name == 'parking meter':
                 publisher = self.pm_point_px_pub
-            
+
             # elif detection_name == 'person':
             #     publisher = self.person_point_px_pub
-            
+
             elif detection_name == 'traffic light':
                 publisher = self.tl_point_px_pub
-                
+
                 # -- Special behavior to publish the cropped traffic light --
-                
+
                 # Infer the y at the bottom (0.45 0.55 ratio)
-                y_infer = int((0.45 * (det.y2 - det.y1) / 0.55) + det.y2)
+                y_infer = int((0.46 * (det.y2 - det.y1) / 0.54) + det.y2)
                 pixel_msg.v = float(y_infer)
 
                 # out_img = bgr_img.copy() # maybe we don't need this because we slice
 
                 # Crop the image to the bbox
                 assert det.x1 < det.x2 and det.y1 < det.y2, f"why is {det.x1=} < {det.x2=} or {det.y1=} < {det.y2=}?"
-                cropped_out_img = bgr_img[det.y1:y_infer, det.x1:det.x2] # slice bgr to not copy it twice 
+                cropped_out_img = bgr_img[det.y1:y_infer, det.x1:det.x2] # slice bgr to not copy it twice
 
                 # Create the msg
                 cropped_img_msg = self.bridge.cv2_to_imgmsg(cropped_out_img, encoding="bgr8")
@@ -286,7 +286,7 @@ class YoloDetection(Node):
             else:
                 self.get_logger().info(f'detection "{detection_name}" does not match any topic we have set up to publish to')
                 return
-        
+
             publisher.publish(pixel_msg)
             # self.get_logger().info(f'published {detection_name} detection to its respective topic')
     ###############

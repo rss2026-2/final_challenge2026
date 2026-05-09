@@ -23,10 +23,10 @@ particle_filter:
     # Deterministic flag; set to true to remove all added noise
     deterministic: false
 
-    motion_pos_trans_noise: 0.48 # Proportion of position change affecting translational noise
-    motion_orient_trans_noise: 0.45 # Proportion of orientation change affecting translational noise
-    motion_pos_rot_noise: 0.5 # Proportion of position change affecting rotational noise
-    motion_orient_rot_noise: 0.65 # Proportion of orientation change affecting rotational noise
+    motion_pos_trans_noise: 1.28 # Proportion of position change affecting translational noise
+    motion_orient_trans_noise: 1.25 # Proportion of orientation change affecting translational noise
+    motion_pos_rot_noise: 1.0 # Proportion of position change affecting rotational noise
+    motion_orient_rot_noise: 1.15 # Proportion of orientation change affecting rotational noise
     motion_forward_bias: 1.10
 
 

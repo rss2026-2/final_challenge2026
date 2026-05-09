@@ -2,6 +2,7 @@ safety_controller:
   ros__parameters:
     safety_radius: 0.25
     safety_controller_const: 0.4
+    intervention_speed: -0.5
 
 homography_transformer:
   ros__parameters:
@@ -29,11 +30,14 @@ trajectory_follower_node:
     drive_topic: "/vesc/high_level/input/nav_2"
 
     max_steering_angle: 0.34
-    speed: 0.65
-    lookahead: 0.5
+    speed: 0.7
+    lookahead: 0.7
     error_epsilon: 0.15
     spin_epsilon: 0.85
-    discretization_length: 0.1
+    discretization_length: 0.4
+
+    drive_timer_rate: 15.0
+    spin_timer_rate: 1.0
 
 yolo_detection_node:
   ros__parameters:
@@ -51,7 +55,7 @@ traffic_light_node:
     tl_drive_topic: "/vesc/high_level/input/nav_0" # Publishes drive commands to car
     tl_point_topic: "/tl_relative_point"
     traffic_light_topic: "/traffic_light" # Subscribes to the detected traffic light image topic
-    
+
     distance_threshold: 5.0
     logger_rate: 100.0
 

@@ -9,7 +9,7 @@ from final_challenge2026.part_b.utils import LineTrajectory
 # added:
 from visualization_msgs.msg import Marker
 import numpy as np
-from std_msgs.msg import Header
+from std_msgs.msg import Header, Float32, Bool
 from geometry_msgs.msg import Point
 from scipy.spatial.transform import Rotation as R
 from viz_utils.visualization_tools import VisualizationTools
@@ -31,21 +31,21 @@ class PurePursuit(Node):
         self.declare_parameter("error_epsilon", 1.0)
         self.declare_parameter("spin_epsilon", 1.0)
         self.declare_parameter("discretization_length", 0.1)
-        
+
         self.declare_parameter("drive_timer_rate", 15.0)
         self.declare_parameter("spin_timer_rate", 1.0)
 
         # -- Assigning variables --
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
         self.drive_topic = self.get_parameter('drive_topic').get_parameter_value().string_value
-        # self.CAR_LENGTH = self.get_parameter('car_length').get_parameter_value().double_value # replaced with self.wheelbase_length
         self.MAX_STEERING_ANGLE = self.get_parameter('max_steering_angle').get_parameter_value().double_value
         self.SPEED = self.get_parameter('speed').get_parameter_value().double_value
         self.LOOKAHEAD = self.get_parameter('lookahead').get_parameter_value().double_value
         self.EPSILON = self.get_parameter('error_epsilon').get_parameter_value().double_value
         self.SPIN_EPSILON = self.get_parameter('spin_epsilon').get_parameter_value().double_value
         self.DISCRETIZATION_LENGTH = self.get_parameter('discretization_length').get_parameter_value().double_value
-        
+        self.PM_COUNT = 2
+
         drive_timer_rate = self.get_parameter('drive_timer_rate').get_parameter_value().double_value
         spin_timer_rate = self.get_parameter('spin_timer_rate').get_parameter_value().double_value
 
@@ -58,6 +58,8 @@ class PurePursuit(Node):
                                                  "/trajectory/current",
                                                  self.trajectory_callback,
                                                  1)
+        self.times_parked_sub = self.create_subscription(Float32, '/times_parked', self.times_parked_callback, 1)
+
         self.drive_pub = self.create_publisher(AckermannDriveStamped,
                                                self.drive_topic,
                                                1) # publish drive commands here
@@ -65,24 +67,28 @@ class PurePursuit(Node):
         self.target_pub = self.create_publisher(Marker, '/target_point', 10)
         self.lookahead_pub = self.create_publisher(Marker, '/lookahead_line', 10)
 
+        # strictly for sending true value to parked_pub so we auto plan new trajectory when we've met the required # of parking meters
+        self.parked_pub = self.create_publisher(Bool, '/parked', 10) # publishes when parked status changes
+
         self.drive_timer = self.create_timer(1/drive_timer_rate, self.drive_timer_callback)
         # Timer to update spin drive cmd facilitating spinning the robot in a circle
         self.spin_timer = self.create_timer(1/spin_timer_rate, self.robot_spin_timer_callback)
-        
+
 
         # -- Other constant vars --
-        self.STEERING_ANGLE_THRESH = 1.2 # initially working with it at 0.9 but it was reversing a lot
+        self.STEERING_ANGLE_THRESH = 0.7 # initially working with it at 0.9 but it was reversing a lot (when we switched to 1.2, but i put it back to 0.9)
         self.WHEELBASE_LENGTH = 0.325 # FILL IN # Need to check this number
         self.LOOKAHEAD = 0.8 + 0.2 * self.SPEED
 
         # -- Initialized vars --
         # Car odometry
-        self.x, self.y, self.theta = None, None, None 
+        self.x, self.y, self.theta = None, None, None
         self.initialized_traj = False
         self.path = None
         self.trajectory = LineTrajectory(self, "/followed_trajectory")
         self.last_closest_idx = 0
-        
+        self.times_parked = 0
+
         # Initialization for drive cmd to spin robot in a circle
         self.spin_drive = AckermannDrive()
         self.spin_drive.speed = 0.5
@@ -152,6 +158,8 @@ class PurePursuit(Node):
         # set the x and y points for the end point (in the map frame)
         self.end_x, self.end_y = new_path[-1]
 
+        self.last_closest_idx = 0
+
         # visualize the path
         x, y = zip(*new_path)
         VisualizationTools.draw_points(list(x), list(y), self.line_pub, stamp, frame="/map") # type=Marker.LINE_STRIP for lines
@@ -169,14 +177,15 @@ class PurePursuit(Node):
         header.stamp = stamp
         header.frame_id = 'base_link'
         drive_cmd.header = header
-        
+
         # check that we only look to move when we have a trajectory and a pose estimate
         if not self.initialized_traj or self.x is None or self.y is None or self.theta is None:
+            # self.get_logger().info(f'Don\'t publish a drive command: {not self.initialized_traj} {self.x} {self.y} {self.theta}')
             return
 
         # Get the lookahead target point (in map frame)
         target_point, traj_vector = self.get_lookahead_point_traj_vector(self.path)
-        
+
         # Visualize the target point
         VisualizationTools.draw_sphere(target_point[0], target_point[1], self.target_pub, stamp, frame="/map", color=(0.5, 0.0, 0.5), scale=(0.3, 0.3, 0.3))
 
@@ -187,7 +196,7 @@ class PurePursuit(Node):
 
         # publish the drive command instead of saving it
         self.drive_pub.publish(drive_cmd)
-        
+
     def robot_spin_timer_callback(self):
         """
         Updates drive command to spin the robot in a circle.
@@ -195,7 +204,10 @@ class PurePursuit(Node):
         # Invert the drive speed and steering angle to switch between moving forward and backward
         # With the correct timer rate, achieves a spinning motion on the robot
         self.spin_drive.speed = -self.spin_drive.speed
-        self.spin_drive.steering_angle = -self.spin_drive.steering_angle            
+        self.spin_drive.steering_angle = -self.spin_drive.steering_angle
+
+    def times_parked_callback(self, msg):
+        self.times_parked = msg.data
 
     def get_lookahead_point_traj_vector(self, path):
         """
@@ -250,19 +262,19 @@ class PurePursuit(Node):
 
         # Check to see if we are too close to the goal
         goal_dist = np.sqrt((self.end_x - self.x)**2 + (self.end_y - self.y)**2)
-        
+
         if self.spinning and goal_dist < self.SPIN_EPSILON:
             # Look around for the parking meter
             # Once we see the parking meter, parking controller (on a higher priority) will override this spinning behavior
             # self.spin_drive is updated on a timer by robot_spin_timer_callback
             drive = self.spin_drive
             return drive
-                
+
         # -- Don't worry about reversing for now --
         # in the case that the cone is behind the car, can also be modified for when we don't see the car
         goal_vector = self.world_to_vehicle(target_point)
         if goal_vector[0] < 0:
-            self.get_logger().info(f'Reversing x:{goal_vector[0]}')
+            # self.get_logger().info(f'Reversing x:{goal_vector[0]}')
             drive.speed = -0.5
             # steer toward the cone while reversing
             drive.steering_angle = float(np.clip(
@@ -274,11 +286,22 @@ class PurePursuit(Node):
 
         # if we are in the stopping range of the end of the trajectory,
         if goal_dist < self.EPSILON:
+            # Check to see if we've already met the required # of parking meters
+            if self.times_parked >= self.PM_COUNT:
+                # publish true to self.parked so we can plan the next trajectory
+                true_msg = Bool()
+                true_msg.data = True
+                self.parked_pub.publish(true_msg)
+                # move a little faster
+                self.SPEED = 1.5
             # Send zero drive command, and then start spinning to look for parking meter
             drive.speed = 0.0
             drive.steering_angle = 0.0
             self.spinning = True
             return drive
+        
+        # Ensure we are not spinning if we get to this point
+        self.spinning = False
 
         # calculate with the pure pursuit
         robot_pos = np.array([self.x, self.y])
@@ -289,9 +312,9 @@ class PurePursuit(Node):
         # If the turn we have to make is too tight or the cone is cut off, or the cone is just plainly too close, reverse first
         turning_angle_too_tight = abs(new_steering_angle) > self.MAX_STEERING_ANGLE * self.STEERING_ANGLE_THRESH
         if turning_angle_too_tight:
-            self.get_logger().info(f'Reversing turining angle:{new_steering_angle }> {self.MAX_STEERING_ANGLE * self.STEERING_ANGLE_THRESH}')
+            # self.get_logger().info(f'Reversing turining angle:{new_steering_angle }> {self.MAX_STEERING_ANGLE * self.STEERING_ANGLE_THRESH}')
             drive.speed = -0.5
-            reverse_angle = -0.5 * new_steering_angle
+            reverse_angle = -0.8 * new_steering_angle
             drive.steering_angle = float(np.clip(reverse_angle,
                                     -self.MAX_STEERING_ANGLE,
                                     self.MAX_STEERING_ANGLE))

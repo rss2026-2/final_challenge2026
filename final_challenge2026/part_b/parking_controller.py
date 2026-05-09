@@ -28,7 +28,7 @@ class ParkingController(Node):
         self.declare_parameter("point_topic", "/pc_relative_point")
         self.declare_parameter("path_marker_topic", "/pc_path")
         self.declare_parameter("parking_error_topic", "/parking_error")
-        
+
         self.declare_parameter("car_length", 0.325)
         self.declare_parameter("max_steering_angle", 0.34)
         self.declare_parameter("velocity", 0.5)
@@ -37,12 +37,12 @@ class ParkingController(Node):
         self.declare_parameter("parking_distance_min", 0.75)
         self.declare_parameter("parking_distance_max", 1.10)
         self.declare_parameter("steering_angle_thresh", 1.2)
-        
-        self.drive_topic = self.get_parameter('drive_topic').value  # set in launch file; different for simulator vs racecar        
+
+        self.drive_topic = self.get_parameter('drive_topic').value  # set in launch file; different for simulator vs racecar
         self.point_topic = self.get_parameter('point_topic').value
         self.path_marker_topic = self.get_parameter('path_marker_topic').value
         self.parking_error_topic = self.get_parameter('parking_error_topic').value
-        
+
         self.car_length = self.get_parameter('car_length').get_parameter_value().double_value
         self.max_steering_angle = self.get_parameter('max_steering_angle').get_parameter_value().double_value
         self.velocity = self.get_parameter('velocity').get_parameter_value().double_value
@@ -54,26 +54,26 @@ class ParkingController(Node):
 
         # -- Publishers and subscribers --
         self.point_sub = self.create_subscription(ConeLocation, self.point_topic, self.relative_cone_callback, 1)
-        
+
         self.drive_pub = self.create_publisher(AckermannDriveStamped, self.drive_topic, 10)
         self.parking_error_pub = self.create_publisher(ParkingError, self.parking_error_topic, 10)
         self.marker_pub = self.create_publisher(Marker, '/drive_to_point', 10)
         self.path_marker_pub = self.create_publisher(Marker, self.path_marker_topic, 10)
-        
+
         # -- Initialized variables --
         self.drive_cmd = None
         self.proximity_check = False
         self.relative_x, self.relative_y = 0.0, 0.0
 
-        timer_rate = 20
-        self.create_timer(1/timer_rate, self.timer_callback)
+        # timer_rate = 20
+        # self.create_timer(1/timer_rate, self.timer_callback)
 
         self.get_logger().info("Parking Controller Initialized")
 
-    def timer_callback(self):
-        if self.drive_cmd is not None:
-            self.drive_pub.publish(self.drive_cmd)
-            self.error_publisher()
+    # def timer_callback(self):
+    #     if self.drive_cmd is not None:
+    #         self.drive_pub.publish(self.drive_cmd)
+    #         self.error_publisher()
 
     def relative_cone_callback(self, msg):
         self.relative_x = msg.x_pos
@@ -126,7 +126,8 @@ class ParkingController(Node):
         drive_cmd.drive = pure_persuit_drive_cmd
         #################################
 
-        self.drive_cmd = drive_cmd
+        # self.drive_cmd = drive_cmd
+        self.drive_pub.publish(drive_cmd)
 
     def error_publisher(self):
         """
@@ -219,7 +220,7 @@ class ParkingController(Node):
         drive = AckermannDrive()
         # in the case that the cone is behind the car, can also be modified for when we don't see the car
         if self.relative_x < 0:
-            self.get_logger().info("it's behind us, reverse")
+            # self.get_logger().info("it's behind us, reverse")
             drive.speed = -0.5
             # steer toward the cone while reversing
             drive.steering_angle = float(np.clip(
@@ -236,7 +237,7 @@ class ParkingController(Node):
         # if we are in the stopping range and pointed at the cone, it's okay
         if goal_dist < self.parking_distance_max and goal_dist > self.parking_distance_min:
             # TODO add something here if we are too close but not pointed well...
-            self.get_logger().info("we are in the stopping range and pointed at the cone")
+            # self.get_logger().info("we are in the stopping range and pointed at the cone")
             drive.speed = 0.0
             drive.steering_angle = 0.0
             return drive
@@ -246,17 +247,17 @@ class ParkingController(Node):
 
         # If the turn we have to make is too tight or the cone is cut off, or the cone is just plainly too close, reverse first
         reason_for_reversing = ""
-        
-        turning_angle_too_tight = abs(new_steering_angle) > self.max_steering_angle * self.STEERING_ANGLE_THRESH
-        if turning_angle_too_tight: 
+
+        turning_angle_too_tight = abs(new_steering_angle) > self.max_steering_angle * self.steering_angle_thresh
+        if turning_angle_too_tight:
             reason_for_reversing += "TURNING ANGLE TOO TIGHT"
-        
+
         cone_too_close = goal_dist < self.parking_distance_min
-        if cone_too_close: 
+        if cone_too_close:
             reason_for_reversing += ", TOO CLOSE"
-            
+
         if turning_angle_too_tight or cone_too_close:
-            self.get_logger().info(f'{reason_for_reversing}; steering_angle: {new_steering_angle}' )
+            # self.get_logger().info(f'{reason_for_reversing}; steering_angle: {new_steering_angle}' )
             drive.speed = -0.5
             reverse_angle = -0.5 * new_steering_angle
             drive.steering_angle = float(np.clip(reverse_angle,
@@ -269,7 +270,7 @@ class ParkingController(Node):
                                     -self.max_steering_angle,
                                     self.max_steering_angle))
 
-            drive.speed = self.velocity # no longer by mode and proximity 
+            drive.speed = self.velocity # no longer by mode and proximity
 
         return drive
 
