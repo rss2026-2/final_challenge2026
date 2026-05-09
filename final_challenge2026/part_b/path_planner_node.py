@@ -1,6 +1,6 @@
 import rclpy
 
-from geometry_msgs.msg import PoseArray, PoseStamped, Point, PointStamped
+from geometry_msgs.msg import PoseArray, PoseStamped, Point, PointStamped, PoseWithCovarianceStamped
 from nav_msgs.msg import OccupancyGrid, Odometry
 from final_challenge2026.part_b.utils import LineTrajectory
 from rclpy.node import Node
@@ -55,6 +55,7 @@ class PathPlan(Node):
         self.goal_sub = self.create_subscription(PointStamped, self.points_topic, self.goal_cb, 10)
         self.pose_sub = self.create_subscription(Odometry, self.odom_topic, self.pose_cb, 10)
         self.parked_sub = self.create_subscription(Bool, self.parked_topic, self.parked_cb, 10) # subscribed to when parking status changes
+        self.init_pose_sub = self.create_subscription(PoseWithCovarianceStamped, "/initialpose", self.init_pose_cb, 1)
 
         if self.publish_path:
             self.traj_pub = self.create_publisher(PoseArray, self.path_topic, 10)
@@ -152,6 +153,11 @@ class PathPlan(Node):
         grid[grid == -1] = 1
         grid[threshold > 0] = 1
 
+    def init_pose_cb(self, _):
+        self.paths = []
+        self.trajectory.clear()
+        self.trajectory.publish_viz(traj_color = self.viz_traj_color)
+        
     def pose_cb(self, pose_msg):
         """
         Saves the current pose of the racecar in the map.
@@ -354,7 +360,7 @@ class PathPlan(Node):
 
         start_cell = self.find_closest_valid_cell(start_cell)
         end_cell = self.find_closest_valid_cell(end_cell)
-        
+
         found_path = None
 
         queue = [] # le heap
