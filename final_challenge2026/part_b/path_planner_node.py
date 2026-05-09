@@ -315,6 +315,27 @@ class PathPlan(Node):
 
         return neighbors
 
+    def find_closest_valid_cell(self, cell):
+        queue = [cell]
+        seen = set()
+
+        while queue:
+            curr_cell = queue.pop(0)
+            if curr_cell in seen:
+                continue
+
+            seen.add(curr_cell)
+
+            if self.map["array"][curr_cell[1]][curr_cell[0]] == 0:
+                return curr_cell
+            
+            map_w, map_h = self.map["width"], self.map["height"]
+            curr_u, curr_v = curr_cell
+            for du,dv in [(1,1), (-1,-1), (1,-1), (-1,1), (-1,0), (1,0), (0,-1), (0,1)]:
+                n_cell = (curr_u + du, curr_v + dv)
+                if 0 <= n_cell[0] < map_w and 0 <= n_cell[1] < map_h: #if the cell is within bounds
+                    queue.append(n_cell)
+
     def plan_path(self, start_point, end_point, visualize = False):
         """
         Given a start and end cell, uses A* search to find a path between these
@@ -330,6 +351,10 @@ class PathPlan(Node):
         """
         cells = self.real_to_grid_frame(np.array([start_point, end_point]))
         start_cell, end_cell = tuple(cells[0]), tuple(cells[1])
+
+        start_cell = self.find_closest_valid_cell(start_cell)
+        end_cell = self.find_closest_valid_cell(end_cell)
+        
         found_path = None
 
         queue = [] # le heap
